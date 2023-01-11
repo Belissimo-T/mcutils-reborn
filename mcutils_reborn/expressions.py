@@ -15,6 +15,10 @@ class ConcreteDataType(abc.ABC):
     dtype: str
 
 
+class AnyDataType(DataType):
+    """Represents any data type."""
+
+
 class NumberType(DataType):
     """A number. May be whole or floating point."""
 
@@ -67,42 +71,59 @@ class CompoundType(DataType):
     """A compound type, i.e. a collection of named fields."""
 
 
-class Expression(Generic[T_concrete]):
+class Expression(Generic):
     """Something that has value. Assignments to expressions are invalid."""
 
     @property
-    def dtype_obj(self) -> DataType:
+    def dtype_obj(self) -> typing.Type[DataType]:
         # noinspection PyTypeChecker
-        generic_args: tuple[DataType, ...] = self.__generic_args__
+        generic_args: tuple[typing.Type[DataType], ...] = self.__generic_args__
 
-        assert len(generic_args) == 1, CompilationError("NbtVar has no dtype.")
+        if len(generic_args) == 1:
+            return generic_args[0]
 
-        return generic_args[0]
+        if len(generic_args) == 0:
+            return AnyDataType
+
+        raise CompilationError(f"NbtVar has invalid dtype {generic_args!r}.")
 
     @property
     def dtype(self) -> str | None:
         try:
-            return self.dtype_obj.dtype
+            dtype_obj = self.dtype_obj
+
+            return getattr(dtype_obj, "dtype", None)
         except CompilationError:
             # no dtype set
             pass
-        except AttributeError:
-            # dtype is not a ConcreteDataType
-            pass
 
-    def is_datatype(self, type_: typing.Type[DataType]) -> bool:
-        return isinstance(self.dtype_obj, type_)
+    @property
+    def dtype_name(self) -> str:
+        return self.dtype_obj.__name__
+
+    def is_datatype(self,
+                    type_: typing.Type[DataType] | typing.Type[ConcreteDataType] |
+                           tuple[typing.Type[DataType] | typing.Type[ConcreteDataType], ...]
+                    ) -> bool:
+        return issubclass(self.dtype_obj, type_)
+
+    def __repr__(self):
+        raise NotImplementedError
 
 
-class Variable(Expression[T_concrete]):
+# noinspection PyAbstractClass
+class Variable(Expression):
     """Represents something that stores some sort of data somewhere."""
 
 
-class ConstExpr(Expression[T_concrete]):
+class ConstExpr(Expression):
     """An expression that holds a compile-time constant."""
 
     def __init__(self, value: str):
         self.value = value
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}[{self.dtype_name}]({self.value!r})"
 
 
 # this is temporary
@@ -116,8 +137,11 @@ class ScoreboardVar(Variable[WholeNumberType]):
         self.objective = objective
         self.player = player
 
+    def __repr__(self):
+        return f"{self.player}@{self.objective}"
 
-class NbtVar(Variable[T_concrete]):
+
+class NbtVar(Variable):
     _nbt_container_type_literal = typing.Literal["block", "entity", "storage"]
 
     def __init__(self,
@@ -127,3 +151,7 @@ class NbtVar(Variable[T_concrete]):
         self.nbt_container_type = nbt_container_type
         self.nbt_container_argument = nbt_container_argument
         self.path = path
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}[{self.dtype_name}]({self.nbt_container_type!r}, " \
+               f"{self.nbt_container_argument!r}, {self.path!r})"

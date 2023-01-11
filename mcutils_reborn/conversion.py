@@ -124,23 +124,25 @@ def var_to_var(src: Expression, dst: Variable) -> list[Command]:
             return score_to_score(src, dst)
 
         if isinstance(dst, NbtVar):
-            if dst.is_datatype(NumberType):
-                raise CompilationError(f"Cannot store ScoreboardVar of integer type in NbtVar of type {dst.dtype}.")
+            if not (dst.is_datatype(NumberType) or dst.is_datatype(AnyDataType)):
+                raise CompilationError(f"Cannot store ScoreboardVar of integer type in NbtVar of type {dst.dtype_name}.")
+
+            if not dst.is_datatype(ConcreteDataType):
+                raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
 
             return score_to_nbt(src, dst)
 
     if isinstance(src, ConstExpr):
         if isinstance(dst, ScoreboardVar):
             if not src.is_datatype(WholeNumberType):
-                raise CompilationError(f"Only integers, not {src.dtype!r} can be stored in a ScoreboardVar.")
+                raise CompilationError(f"Only ConstExpr of WholeNumberType, not {src.dtype_name} can be stored in a "
+                                       f"ScoreboardVar.")
 
             return const_to_score(src, dst)
 
         if isinstance(dst, NbtVar):
-            if src.dtype != dst.dtype:
-                raise CompilationError(
-                    f"Cannot store ConstExpr {src!r} of type {src.dtype!r} in NbtVar of type {dst.dtype!r}."
-                )
+            if not (dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype)):
+                raise CompilationError(f"Cannot store {src!r} in {dst!r}.")
 
             return const_to_nbt(src, dst)
 
@@ -150,20 +152,29 @@ def var_to_var(src: Expression, dst: Variable) -> list[Command]:
             return nbt_to_score(src, dst)
 
         if isinstance(dst, NbtVar):
-            if src.dtype == dst.dtype:
+            if dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype):
                 return nbt_to_same_nbt(src, dst)
 
-            if isinstance(src.dtype_obj, NumberType) and isinstance(dst.dtype_obj, NumberType):
+            if src.is_datatype(NumberType) and dst.is_datatype(NumberType):
+                if not dst.is_datatype(ConcreteDataType):
+                    raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
+
+                if src.dtype is None and dst.dtype == "double":
+                    issue_warning(CompilationWarning(
+                        f"Set from {src.dtype_name} NbtVar to double NbtVar: Due currently unknown reasons, it is not "
+                        f"possible to do type conversion from an unknown type to a double without rounding to a float. "
+                        f"That means a (potential) double will be rounded to a float."
+                        f"In case you want to actually fetch a nbt double into another nbt double, add type "
+                        f"information to both NbtVars."
+                    ))
                 return nbt_number_to_nbt_number(src, dst)
 
-            if src.dtype in {"compound", "list", "string"} and isinstance(dst.dtype_obj, NumberType):
+            if src.is_datatype((CompoundType, ListType, StringType)) and dst.is_datatype(NumberType):
+                if not dst.is_datatype(ConcreteDataType):
+                    raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
+
                 return nbt_container_to_number(src, dst)
 
-            if dst.dtype == "double":
-                issue_warning(CompilationWarning(
-                    f"Set from {src.dtype} NbtVar to double NbtVar: Due currently unknown reasons, it is not easily possible "
-                    f"to do type conversion from an unknown type to a double without rounding to a float. In case you want to "
-                    "actually fetch a nbt double into another nbt double, add type information to both NbtVars."
-                ))
+            raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
 
-    raise CompilationError(f"Cannot set {src.dtype} NbtVar to {dst.dtype} NbtVar.")
+    raise CompilationError(f"Cannot set {src!r} to {dst!r}.")

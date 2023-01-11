@@ -124,7 +124,7 @@ class Function(Namespace):
 
 
 class Template(Namespace):
-    def __init__(self, name: str, template: typing.Callable[["Template", ...], Function]):
+    def __init__(self, name: str, template: typing.Callable[[...], Function]):
         super().__init__(name)
 
         self.template = template
@@ -135,7 +135,9 @@ class Template(Namespace):
         converted_kwargs: tuple[tuple[str, typing.Any]] = tuple(kwargs.items())
 
         if converted_kwargs not in self.functions:
-            self.functions[converted_kwargs] = self.template(self, **kwargs)
+            func = self.template(**kwargs)
+            self.functions[converted_kwargs] = func
+            self.add(func)
 
         return self.functions[converted_kwargs]
 

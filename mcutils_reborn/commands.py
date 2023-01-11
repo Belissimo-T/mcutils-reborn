@@ -27,7 +27,7 @@ class FunctionCall(Command):
 
 class Comment(LiteralCommand):
     def __init__(self, comment: str):
-        super().__init__(f"# {comment}")
+        super().__init__(f"\n# {comment}")
 
 
 class SayCommand(LiteralCommand):

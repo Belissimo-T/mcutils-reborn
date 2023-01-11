@@ -118,14 +118,15 @@ def nbt_container_to_number(src: NbtVar[CompoundType | ListType | StringType],
     ]
 
 
-def var_to_var(src: Expression, dst: Variable) -> list[Command]:
+def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
     if isinstance(src, ScoreboardVar):
         if isinstance(dst, ScoreboardVar):
             return score_to_score(src, dst)
 
         if isinstance(dst, NbtVar):
             if not (dst.is_datatype(NumberType) or dst.is_datatype(AnyDataType)):
-                raise CompilationError(f"Cannot store ScoreboardVar of integer type in NbtVar of type {dst.dtype_name}.")
+                raise CompilationError(
+                    f"Cannot store ScoreboardVar of integer type in NbtVar of type {dst.dtype_name}.")
 
             if not dst.is_datatype(ConcreteDataType):
                 raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
@@ -178,3 +179,10 @@ def var_to_var(src: Expression, dst: Variable) -> list[Command]:
             raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
 
     raise CompilationError(f"Cannot set {src!r} to {dst!r}.")
+
+
+def var_to_var(src: Expression, dst: Variable) -> list[Command]:
+    return [
+        Comment(f"Set {src!r} to {dst!r}"),
+        *_var_to_var(src, dst),
+    ]

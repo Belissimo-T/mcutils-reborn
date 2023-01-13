@@ -35,7 +35,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
         out = Function(f"peek_any_{stack_nr}")
 
         out.add_command(
-            SayCommand(f"!! HIT {out.name} STUB !!")
+            *tools.log(f"{'.'.join(std_stack_namespace.path())}", f"!! HIT {out.name} STUB !!")
         )
 
         return out
@@ -52,6 +52,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            tag_of_stacknr(stack_nr), STD_STACK_INDEX_OBJECTIVE, *stack_len_of_stacknr(stack_nr),
                            _STD_STACK_TEMP_TAG),
 
+            Comment("return value"),
             *var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
         )
 

@@ -112,14 +112,17 @@ class SayCommand(LiteralCommand):
 
 
 class DynamicCommand(Command):
-    def __init__(self, func: typing.Callable[[typing.Callable[[UniqueString | str], str]], str]):
+    _path_of_func_callable = typing.Callable[[Pathable], str]
+    _resolve_callable = typing.Callable[[UniqueString | str], str]
+
+    def __init__(self, func: typing.Callable[[_path_of_func_callable, _resolve_callable], str]):
         self.func = func
 
-    def get_str(self, path_of_func: typing.Callable[[MCFunction], str], strings: dict[UniqueString, str]) -> str:
+    def get_str(self, path_of_func: _path_of_func_callable, strings: dict[UniqueString, str]) -> str:
         def resolve(arg: UniqueString | str) -> str:
             if isinstance(arg, str):
                 return arg
 
             return strings[arg]
 
-        return self.func(resolve)
+        return self.func(path_of_func, resolve)

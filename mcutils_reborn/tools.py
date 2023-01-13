@@ -6,7 +6,7 @@ from .exceptions import CompilationError
 from . import tellraw
 
 
-def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextComponent,
+def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextComponent | UniqueString,
            player: str | UniqueString = "@a", resolve: typing.Callable[[UniqueString | str], str]) -> list[str]:
     out = []
 
@@ -17,6 +17,9 @@ def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextCompone
     clean_ups = {}
 
     for arg in args:
+        if isinstance(arg, UniqueString):
+            arg = resolve(arg)
+
         if isinstance(arg, str):
             text_components.append(tellraw.PlainText(arg, **curr_text_kwargs))
         elif isinstance(arg, Expression):
@@ -48,10 +51,10 @@ def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextCompone
 def print_(*args: str | dict[str, str | bool] | Expression | tellraw.TextComponent,
            player: str | UniqueString = "@a") -> list[Command]:
     return [
-        DynamicCommand(lambda resolve: "\n".join(_print(*args, player=player, resolve=resolve)))
+        DynamicCommand(lambda path_of_func, resolve: "\n".join(_print(*args, player=player, resolve=resolve)))
     ]
 
 
-def log(prefix: str, *args):
+def log(prefix: str | UniqueString | Expression | tellraw.TextComponent, *args):
     """Print [prefix] *args."""
-    return print_({"color": "light_purple"}, f"[{prefix}]", {"color": tellraw.UNSET}, " ", *args)
+    return print_({"color": "light_purple"}, "[", prefix, "]", {"color": tellraw.UNSET}, " ", *args)

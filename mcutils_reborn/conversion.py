@@ -183,7 +183,7 @@ def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
 
 def var_to_var(src: Expression, dst: Variable) -> list[Command]:
     return [
-        Comment(f"Set {src!r} to {dst!r}"),
+        # Comment(f"set {src!r} to {dst!r}"),
         *_var_to_var(src, dst),
     ]
 

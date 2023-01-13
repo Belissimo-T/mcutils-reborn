@@ -27,15 +27,15 @@ class UniqueString:
     def __repr__(self):
         return f"{self.__class__.__name__}[{self.id}]({self.value!r})"
 
-    def transform(self, value: str) -> str:
+    def add_path(self, value: str) -> str:
         return f"{self.path_func(self.namespace.path())}.{value}"
 
     def get(self, existing_strings: set[str], resolve: typing.Callable[["UniqueString"], str]) -> str:
         i = 2
-        out = self.transform(self.value)
+        out = self.add_path(self.value)
 
         while out in existing_strings:
-            out = self.transform(f"{self.value}.{i}")
+            out = self.add_path(f"{self.value}.{i}")
             i += 1
 
         return out
@@ -112,8 +112,14 @@ class SayCommand(LiteralCommand):
 
 
 class DynamicCommand(Command):
-    def __init__(self, func: typing.Callable[[dict[UniqueString, str]], str]):
+    def __init__(self, func: typing.Callable[[typing.Callable[[UniqueString | str], str]], str]):
         self.func = func
 
     def get_str(self, path_of_func: typing.Callable[[MCFunction], str], strings: dict[UniqueString, str]) -> str:
-        return self.func(strings)
+        def resolve(arg: UniqueString | str) -> str:
+            if isinstance(arg, str):
+                return arg
+
+            return strings[arg]
+
+        return self.func(resolve)

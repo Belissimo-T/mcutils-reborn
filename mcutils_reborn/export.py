@@ -101,4 +101,8 @@ class Datapack(Namespace):
             # noinspection PyTypeChecker
             out[path_to_str(path)] = beet.Function(content, tags=tags)
 
+        # set replace=false in all function tags
+        for tag in out.function_tags.values():
+            tag.data["replace"] = False
+
         return out

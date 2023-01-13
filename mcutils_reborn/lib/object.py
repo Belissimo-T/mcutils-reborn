@@ -1,5 +1,7 @@
 from .std import *
 from ..commands import *
+from ..expressions import ConstInt
+from ..conversion import var_to_var
 
 with std_namespace.create_namespace("object") as std_object:
     STD_OBJ_RET_TAG = UniqueTag("object_ret", std_object)
@@ -11,20 +13,16 @@ with std_namespace.create_namespace("object") as std_object:
         load.add_command(
             Comment("create the object id objective"),
             LiteralCommand("scoreboard objectives add %s dummy", STD_OBJ_ID_OBJECTIVE),
+
+            Comment("initialize the object id counter"),
+            *var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
+
             *tools.log("mcutils_reborn", " * Loaded object library!"),
         )
 
     with std_object.create_class("object") as std_object_object:
         STD_OBJ_TAG = UniqueTag("object", std_object_object)
         _STD_OBJ_TEMP_TAG = UniqueTag("temp", std_object_object)
-
-
-        def tag_remove_all(tag: UniqueTag | str) -> list[Command]:
-            return [
-                Comment("remove the temp tag from all entities"),
-                LiteralCommand("tag @e remove %s", tag),
-            ]
-
 
         with std_object_object.create_function("__new__") as std_object_object_new:
             std_object_object_new.describe(
@@ -40,8 +38,8 @@ with std_namespace.create_namespace("object") as std_object:
                 LiteralCommand('scoreboard players add %s %s 1', *STD_OBJ_ID_COUNTER),
 
                 Comment("summon a marker with the temp tag"),
-                LiteralCommand('summon minecraft:marker 0 0 0 {Tags:["%s", "%s", "%s"]}',
-                               STD_OBJ_TAG, _STD_OBJ_TEMP_TAG, STD_OBJ_RET_TAG),
+                LiteralCommand('summon minecraft:marker 0 0 0 {Tags:["%s", "%s", "%s", "%s"]}',
+                               STD_TAG, STD_OBJ_TAG, _STD_OBJ_TEMP_TAG, STD_OBJ_RET_TAG),
 
                 Comment("set the object id of the marker"),
                 LiteralCommand('scoreboard players operation @e[tag=%s] %s = %s %s',

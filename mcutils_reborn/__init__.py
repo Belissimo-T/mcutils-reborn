@@ -135,10 +135,10 @@ class Function(Namespace):
     def c_call_function(self, function: "Function", *args: "Expression"):
         self.add_command(FunctionCall(function.entry_point))
 
-    def c_if(self, condition: "Condition"):
+    def c_if(self):
         raise NotImplementedError
 
-    def c_while(self, condition: "Condition"):
+    def c_while(self):
         raise NotImplementedError
 
     def return_(self, var: "Expression"):

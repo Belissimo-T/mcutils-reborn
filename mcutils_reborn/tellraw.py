@@ -166,14 +166,14 @@ class TranslatedText(TextComponent):
 
 
 class ScoreboardValue(TextComponent):
-    def __init__(self, var: "ScoreboardVar", *args, **kwargs):
+    def __init__(self, player: str, objective: str, *args, **kwargs):
         """
         :param player: may be "*" to list the scores of @a.
         """
         super().__init__(*args, **kwargs)
 
-        self.player = var.player
-        self.objective = var.objective
+        self.player = player
+        self.objective = objective
 
     def get_special(self) -> dict:
         return {"score": {"name": self.player, "objective": self.objective}}

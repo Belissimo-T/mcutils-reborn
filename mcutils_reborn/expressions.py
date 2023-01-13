@@ -109,7 +109,9 @@ class Expression(Generic):
         return issubclass(self.dtype_obj, type_)
 
     def to_tellraw(self,
-                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+                   curr_text_kwargs: dict[str, typing.Any],
+                   resolve: typing.Callable[[UniqueString | str], str]
+                   ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         raise NotImplementedError
 
     def __repr__(self):
@@ -128,7 +130,9 @@ class ConstExpr(Expression):
         self.value = value
 
     def to_tellraw(self,
-                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+                   curr_text_kwargs: dict[str, typing.Any],
+                   unique_strings: dict[UniqueString, str]
+                   ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.PlainText(self.value, **curr_text_kwargs)]
 
     def __repr__(self):
@@ -150,8 +154,10 @@ class ScoreboardVar(Variable[WholeNumberType]):
         return f"{self.player}@{self.objective}"
 
     def to_tellraw(self,
-                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
-        return [], [tellraw.ScoreboardValue(self, **curr_text_kwargs)]
+                   curr_text_kwargs: dict[str, typing.Any],
+                   resolve: typing.Callable[[UniqueString | str], str]
+                   ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
+        return [], [tellraw.ScoreboardValue(resolve(self.player), resolve(self.objective), **curr_text_kwargs)]
 
     def __iter__(self):
         yield self.player
@@ -170,8 +176,9 @@ class NbtVar(Variable):
         self.path = path
 
     def to_tellraw(self,
-                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
-
+                   curr_text_kwargs: dict[str, typing.Any],
+                   resolve: typing.Callable[[UniqueString | str], str]
+                   ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.NBT(self.path, **{self.nbt_container_type: self.nbt_container_argument},
                                 **curr_text_kwargs)]
 

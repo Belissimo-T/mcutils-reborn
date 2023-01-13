@@ -2,7 +2,7 @@ import abc
 import re
 import typing
 
-from . import MCFunction, Pathable
+from . import Function, MCFunction, Pathable
 from . import paths
 
 _UNIQUE_STRING_ID = 0
@@ -21,23 +21,33 @@ class UniqueString:
     def __hash__(self):
         return hash((self.id, self.__class__.__name__, self.value))
 
+    def __eq__(self, other: "UniqueString"):
+        return self.id == other.id
+
     def __repr__(self):
-        return f"{self.__class__.__name__}({self.value!r})"
+        return f"{self.__class__.__name__}[{self.id}]({self.value!r})"
 
-    def transform(self, value: str, mcfunc: Pathable) -> str:
-        return f"{self.path_func(mcfunc.path())}.{value}"
+    def transform(self, value: str) -> str:
+        return f"{self.path_func(self.namespace.path())}.{value}"
 
-    def get(self, existing_strings: set[str], namespace: Pathable) -> str:
-        namespace = namespace if self.namespace is None else self.namespace
-
+    def get(self, existing_strings: set[str], resolve: typing.Callable[["UniqueString"], str]) -> str:
         i = 2
-        out = self.transform(self.value, namespace)
+        out = self.transform(self.value)
 
         while out in existing_strings:
-            out = self.transform(f"{self.value}.{i}", namespace)
+            out = self.transform(f"{self.value}.{i}")
             i += 1
 
         return out
+
+
+class CompositeString(UniqueString):
+    def __init__(self, value: str, *args):
+        super().__init__(value, None)
+        self.args = args
+
+    def get(self, existing_strings: set[str], resolve: typing.Callable[["UniqueString"], str]) -> str:
+        return self.value % tuple([resolve(arg) for arg in self.args])
 
 
 class UniqueRestrictedString(UniqueString):
@@ -59,7 +69,7 @@ class Command(abc.ABC):
         ...
 
     # noinspection PyMethodMayBeStatic
-    def get_unique_strings(self) -> typing.Iterable[UniqueString]:
+    def get_unique_strings(self) -> typing.Sequence[UniqueString]:
         return ()
 
 
@@ -77,14 +87,17 @@ class LiteralCommand(Command):
         return self.literal % format_args
 
     def get_unique_strings(self) -> typing.Iterable[UniqueString]:
-        return self.args
+        return [arg for arg in self.args if isinstance(arg, UniqueString)]
 
 
 class FunctionCall(Command):
-    def __init__(self, function: MCFunction):
+    def __init__(self, function: Pathable):
+        assert not isinstance(function, Function), \
+            "Argument to FunctionCall must not be a Function object. Use MCFunction or FunctionTag instead."
+
         self.function = function
 
-    def get_str(self, path_of_func: typing.Callable[[MCFunction], str], strings: dict[UniqueString, str]) -> str:
+    def get_str(self, path_of_func: typing.Callable[[Pathable], str], strings: dict[UniqueString, str]) -> str:
         return f"function {path_of_func(self.function)}"
 
 
@@ -96,3 +109,11 @@ class Comment(LiteralCommand):
 class SayCommand(LiteralCommand):
     def __init__(self, message: str):
         super().__init__(f"say {message}")
+
+
+class DynamicCommand(Command):
+    def __init__(self, func: typing.Callable[[dict[UniqueString, str]], str]):
+        self.func = func
+
+    def get_str(self, path_of_func: typing.Callable[[MCFunction], str], strings: dict[UniqueString, str]) -> str:
+        return self.func(strings)

@@ -108,6 +108,10 @@ class Expression(Generic):
                     ) -> bool:
         return issubclass(self.dtype_obj, type_)
 
+    def to_tellraw(self,
+                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+        raise NotImplementedError
+
     def __repr__(self):
         raise NotImplementedError
 
@@ -123,6 +127,10 @@ class ConstExpr(Expression):
     def __init__(self, value: str):
         self.value = value
 
+    def to_tellraw(self,
+                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+        return [], [tellraw.PlainText(self.value, **curr_text_kwargs)]
+
     def __repr__(self):
         return f"{self.__class__.__name__}[{self.dtype_name}]({self.value!r})"
 
@@ -134,12 +142,16 @@ class ConstInt(ConstExpr[WholeNumberType]):
 
 
 class ScoreboardVar(Variable[WholeNumberType]):
-    def __init__(self, objective: str | UniqueString, player: str | UniqueString):
-        self.objective = objective
+    def __init__(self, player: str | UniqueString, objective: str | UniqueString):
         self.player = player
+        self.objective = objective
 
     def __repr__(self):
         return f"{self.player}@{self.objective}"
+
+    def to_tellraw(self,
+                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+        return [], [tellraw.ScoreboardValue(self, **curr_text_kwargs)]
 
     def __iter__(self):
         yield self.player
@@ -157,6 +169,16 @@ class NbtVar(Variable):
         self.nbt_container_argument = nbt_container_argument
         self.path = path
 
+    def to_tellraw(self,
+                   curr_text_kwargs: dict[str, typing.Any]) -> tuple[list["Command"], list["tellraw.TextComponent"]]:
+
+        return [], [tellraw.NBT(self.path, **{self.nbt_container_type: self.nbt_container_argument},
+                                **curr_text_kwargs)]
+
     def __repr__(self):
         return f"{self.__class__.__name__}[{self.dtype_name}]({self.nbt_container_type!r}, " \
                f"{self.nbt_container_argument!r}, {self.path!r})"
+
+
+from .commands import Command
+from . import tellraw

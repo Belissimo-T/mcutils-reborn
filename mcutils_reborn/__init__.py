@@ -35,6 +35,12 @@ class Namespace(Pathable):
 
         return mcfunction
 
+    def create_function_tag(self, name: str) -> "FunctionTag":
+        function_tag = FunctionTag(name, self)
+        function_tag.parent = self
+
+        return function_tag
+
     def create_class(self, *args, **kwargs) -> "Class":
         cls = Class(*args, **kwargs)
         self.add(cls)
@@ -52,7 +58,7 @@ class Namespace(Pathable):
             from .lib.std import STD_OBJECTIVE
             objective = STD_OBJECTIVE
 
-        return ScoreboardVar(objective, UniqueScoreboardPlayer(player, self))
+        return ScoreboardVar(UniqueScoreboardPlayer(player, self), objective)
 
     def get(self, name: str):
         return self.children[name]
@@ -81,10 +87,16 @@ class Namespace(Pathable):
         pass
 
 
+class FunctionTag(Pathable):
+    def __init__(self, name: str, parent: Namespace):
+        self.name = name
+        self.parent = parent
+
+
 class MCFunction(Pathable):
     """Represents a single mcfunction file."""
 
-    def __init__(self, name: str, tags: set[str], description: str = ""):
+    def __init__(self, name: str, tags: set[str | FunctionTag], description: str = ""):
         self.description = description
         self.name = name
         self.tags = tags
@@ -93,15 +105,11 @@ class MCFunction(Pathable):
     def add_command(self, command: "Command"):
         self.commands.append(command)
 
-    def content(self, path_of_func: typing.Callable[["MCFunction"], str],
-                strings: dict["UniqueString", str]) -> list[str]:
-        return [command.get_str(path_of_func, strings) for command in self.commands]
-
 
 class Function(Namespace):
     """Represents a function. May contain multiple mcfunctions."""
 
-    def __init__(self, name: str, args: tuple[str] = (), *, description: str = "", tags: set[str] = None):
+    def __init__(self, name: str, args: tuple[str] = (), *, description: str = "", tags: set[str | FunctionTag] = None):
         super().__init__(name)
 
         tags = set() if tags is None else tags
@@ -134,7 +142,11 @@ class Function(Namespace):
         raise NotImplementedError
 
     def return_(self, var: "Expression"):
-        raise NotImplementedError
+        from .lib.std import STD_RET
+
+        self.add_command(
+            *var_to_var(var, STD_RET)
+        )
 
 
 class Template(Namespace):
@@ -177,3 +189,8 @@ class Class(Namespace):
 
 from .commands import *
 from .expressions import *
+from .conversion import var_to_var
+from .lib.std import *
+from .exceptions import *
+from .export import *
+from . import tools

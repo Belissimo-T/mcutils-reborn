@@ -6,21 +6,21 @@ from .commands import *
 # Conversions:
 
 ScoreboardVar -> ScoreboardVar
- * scoreboard players operation <ob2> <pl2> = <ob1> <pl1>
- * execute store result score <ob2> <pl2> run scoreboard players get <ob1> <pl1>
+ * scoreboard players operation <pl2> <ob2> = <pl1> <ob1>
+ * execute store result score <pl2> <ob2> run scoreboard players get <pl1> <ob1>
 
 ScoreboardVar -> NbtVar[number]:
  * execute store result <nbt_container_type> <nbt_container_arg> <path> <dtype> <scale> 
-       run scoreboard players get <ob1> <pl1>
+       run scoreboard players get <pl1> <ob1>
 
 Const[int] -> ScoreboardVar:
- * scoreboard players set <ob1> <pl1> <const>
+ * scoreboard players set <pl1> <ob1> <const>
 
 Const[T] -> NbtVar[T]:
  * data modify <nbt_container_type> <nbt_container_arg> <path> set value <const>
 
 NbtVar[number | str | list | compound] -> ScoreboardVar:
- * execute store result score <ob1> <pl1> run data get <nbt_container_type> <nbt_container_arg> <path> 
+ * execute store result score <pl1> <ob1> run data get <nbt_container_type> <nbt_container_arg> <path> 
    - dtype int, float or double will round down
    - dtype str, list or compound will yield length
 
@@ -163,8 +163,8 @@ def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
                 if src.dtype is None and dst.dtype == "double":
                     issue_warning(CompilationWarning(
                         f"Set from {src.dtype_name} NbtVar to double NbtVar: Due currently unknown reasons, it is not "
-                        f"possible to do type conversion from an unknown type to a double without rounding to a float. "
-                        f"That means a (potential) double will be rounded to a float."
+                        f"possible to do type conversion from an unknown dtype to a double without rounding to a float."
+                        f" That means a (potential) double will be rounded to a float."
                         f"In case you want to actually fetch a nbt double into another nbt double, add type "
                         f"information to both NbtVars."
                     ))
@@ -186,3 +186,18 @@ def var_to_var(src: Expression, dst: Variable) -> list[Command]:
         Comment(f"Set {src!r} to {dst!r}"),
         *_var_to_var(src, dst),
     ]
+
+
+"""
+# Operations
+
+ScoreboardVar += ConstExpr[number]:
+ * scoreboard players add <pl> <ob> <val>
+ * scoreboard players remove <pl> <ob> <val>
+
+ScoreboardVar += ScoreboardVar:
+ * scoreboard players operation <pl1> <ob1> += <pl2> <ob2>
+ * scoreboard players operation <pl1> <ob1> -= <pl2> <ob2>
+
+
+"""

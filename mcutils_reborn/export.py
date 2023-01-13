@@ -1,9 +1,9 @@
 import os
 import beet
 
-from . import Namespace
+from . import Namespace, FunctionTag, MCFunction
 from .paths import *
-from .commands import LiteralCommand
+from .commands import LiteralCommand, UniqueString, Command
 
 
 class Datapack(Namespace):
@@ -31,33 +31,74 @@ class Datapack(Namespace):
             pack_format=self.pack_format,
         )
 
-        unique_strings = {}
-        existing_strings = set()
+        # set the namespace of all unique strings
         for mcfunc in all_mcfuncs.values():
             for command in mcfunc.commands:
                 for unique_string in command.get_unique_strings():
-                    if unique_string in unique_strings:
-                        continue
+                    if unique_string.namespace is None:
+                        unique_string.namespace = mcfunc
 
-                    new_string = unique_string.get(existing_strings, mcfunc)
-                    unique_strings[unique_string] = new_string
-                    existing_strings.add(new_string)
+        unique_strings = {}
+        existing_strings = set()
 
-                    print(f" * {unique_string} -> {new_string!r}")
+        # noinspection PyShadowingNames
+        def resolve(unique_string: UniqueString) -> str:
+            if unique_string not in unique_strings:
+                unique_strings[unique_string] = unique_string.get(existing_strings, resolve)
+                existing_strings.add(unique_strings[unique_string])
+
+            return unique_strings[unique_string]
+
+        for mcfunc in all_mcfuncs.values():
+            for command in mcfunc.commands:
+                for unique_string in command.get_unique_strings():
+                    resolve(unique_string)
+
+        for unique_string, string in unique_strings.items():
+            print(f" * {unique_string} -> {string!r}")
+
+        def get_mcfunc_content(commands: list[Command],
+                               path_of_func: typing.Callable[["MCFunction"], str],
+                               strings: dict["UniqueString", str]) -> list[str]:
+            return [cmd.get_str(path_of_func, strings) for cmd in commands]
 
         for path, mcfunc in all_mcfuncs.items():
             print(f"-> {path_to_str(path)}")
 
-            mcfunc.commands = [
+            tags = [path_to_str(tag.path()) if isinstance(tag, FunctionTag) else tag for tag in mcfunc.tags]
+
+            handles_comment = []
+            if tags:
+                handles_comment += [
+                    LiteralCommand("#"),
+                    LiteralCommand("# @handles"),
+                    *[LiteralCommand(f"#   #{handler}") for handler in tags]
+                ]
+
+            description_comment = []
+            if mcfunc.description:
+                description_comment += [
+                    LiteralCommand("#"),
+                    *[LiteralCommand(f"# {paragraph}") for paragraph in mcfunc.description.splitlines()]
+                ]
+
+            commands = [
                 LiteralCommand(f"#> {path_to_str(path)}"),
-                LiteralCommand("#"),
-                *(LiteralCommand(f"# {paragraph}") for paragraph in mcfunc.description.splitlines()),
+                *description_comment,
+                *handles_comment,
                 *mcfunc.commands
             ]
 
-            content = mcfunc.content(lambda mcfunc_: path_to_str(mcfunc_.path()), unique_strings)
+            content = get_mcfunc_content(
+                commands,
+
+                lambda pathable:
+                ("#" if isinstance(pathable, FunctionTag) else "") + path_to_str(pathable.path()),
+
+                unique_strings
+            )
 
             # noinspection PyTypeChecker
-            out[path_to_str(path)] = beet.Function(content)
+            out[path_to_str(path)] = beet.Function(content, tags=tags)
 
         return out

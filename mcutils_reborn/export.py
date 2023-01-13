@@ -1,17 +1,9 @@
 import os
-import typing
-
 import beet
 
-from . import Namespace, MCFunction
-
-Path = typing.Container[str]
-
-
-def path_to_str(path: Path) -> str:
-    first, *rest = path
-
-    return f"{first}:{'/'.join(rest)}"
+from . import Namespace
+from .paths import *
+from .commands import LiteralCommand
 
 
 class Datapack(Namespace):
@@ -25,11 +17,11 @@ class Datapack(Namespace):
         self.description = description
         self.pack_format = pack_format
 
-    def to_beet_pack(self) -> beet.DataPack:
-        all_mcfuncs = self.get_all_mcfunctions()
+    def path(self):
+        return []
 
-        def mcfunc_to_path(mcfunc: MCFunction) -> str:
-            return path_to_str(mcfunc.path())
+    def export(self) -> beet.DataPack:
+        all_mcfuncs = self.get_all_mcfunctions()
 
         out = beet.DataPack(
             name=self.name,
@@ -39,10 +31,33 @@ class Datapack(Namespace):
             pack_format=self.pack_format,
         )
 
-        for path, mcfunc in all_mcfuncs.items():
-            print(f"-> Transpiling {path_to_str(path)}")
-            content = mcfunc.content(mcfunc_to_path)
+        unique_strings = {}
+        existing_strings = set()
+        for mcfunc in all_mcfuncs.values():
+            for command in mcfunc.commands:
+                for unique_string in command.get_unique_strings():
+                    if unique_string in unique_strings:
+                        continue
 
+                    new_string = unique_string.get(existing_strings, mcfunc)
+                    unique_strings[unique_string] = new_string
+                    existing_strings.add(new_string)
+
+                    print(f" * {unique_string} -> {new_string!r}")
+
+        for path, mcfunc in all_mcfuncs.items():
+            print(f"-> {path_to_str(path)}")
+
+            mcfunc.commands = [
+                LiteralCommand(f"#> {path_to_str(path)}"),
+                LiteralCommand("#"),
+                *(LiteralCommand(f"# {paragraph}") for paragraph in mcfunc.description.splitlines()),
+                *mcfunc.commands
+            ]
+
+            content = mcfunc.content(lambda mcfunc_: path_to_str(mcfunc_.path()), unique_strings)
+
+            # noinspection PyTypeChecker
             out[path_to_str(path)] = beet.Function(content)
 
         return out

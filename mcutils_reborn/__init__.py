@@ -29,7 +29,7 @@ class Namespace(Pathable):
 
         return function
 
-    def create_mcfunction(self,*args, **kwargs) -> "MCFunction":
+    def create_mcfunction(self, *args, **kwargs) -> "MCFunction":
         mcfunction = MCFunction(*args, **kwargs)
         self.add(mcfunction)
 
@@ -46,6 +46,13 @@ class Namespace(Pathable):
         self.add(template)
 
         return template
+
+    def get_unique_scoreboard_var(self, player: str, objective: "str | UniqueString | None" = None) -> "ScoreboardVar":
+        if objective is None:
+            from .lib.std import STD_OBJECTIVE
+            objective = STD_OBJECTIVE
+
+        return ScoreboardVar(objective, UniqueScoreboardPlayer(player, self))
 
     def get(self, name: str):
         return self.children[name]
@@ -77,7 +84,8 @@ class Namespace(Pathable):
 class MCFunction(Pathable):
     """Represents a single mcfunction file."""
 
-    def __init__(self, name: str, tags: set[str]):
+    def __init__(self, name: str, tags: set[str], description: str = ""):
+        self.description = description
         self.name = name
         self.tags = tags
         self.commands: list[Command] = []
@@ -85,21 +93,27 @@ class MCFunction(Pathable):
     def add_command(self, command: "Command"):
         self.commands.append(command)
 
-    def content(self, path_of_func: typing.Callable[["MCFunction"], str]) -> list[str]:
-        return [command.get_str(path_of_func) for command in self.commands]
+    def content(self, path_of_func: typing.Callable[["MCFunction"], str],
+                strings: dict["UniqueString", str]) -> list[str]:
+        return [command.get_str(path_of_func, strings) for command in self.commands]
 
 
 class Function(Namespace):
     """Represents a function. May contain multiple mcfunctions."""
 
-    def __init__(self, name: str, args: tuple[str] = (), *, tags: set[str] = None):
+    def __init__(self, name: str, args: tuple[str] = (), *, description: str = "", tags: set[str] = None):
         super().__init__(name)
 
+        tags = set() if tags is None else tags
+
         self.args = args
-        self.entry_point = self.create_mcfunction(f"{name}-main", tags=tags)
+        self.entry_point = self.create_mcfunction(self.name, tags=tags, description=description)
         self.current_mcfunction = self.entry_point
 
         self.init()
+
+    def describe(self, description: str):
+        self.entry_point.description = description
 
     def init(self):
         # pop arguments from stack into scoreboard vars
@@ -110,7 +124,7 @@ class Function(Namespace):
         for command in commands_:
             self.current_mcfunction.add_command(command)
 
-    def c_call_function(self, function: "Function"):
+    def c_call_function(self, function: "Function", *args: "Expression"):
         self.add_command(FunctionCall(function.entry_point))
 
     def c_if(self, condition: "Condition"):

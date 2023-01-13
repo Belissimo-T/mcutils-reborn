@@ -3,6 +3,7 @@ import typing
 
 from .exceptions import CompilationError
 from .generics import Generic
+from .commands import UniqueString
 
 
 class DataType:
@@ -133,12 +134,16 @@ class ConstInt(ConstExpr[WholeNumberType]):
 
 
 class ScoreboardVar(Variable[WholeNumberType]):
-    def __init__(self, objective: str, player: str):
+    def __init__(self, objective: str | UniqueString, player: str | UniqueString):
         self.objective = objective
         self.player = player
 
     def __repr__(self):
         return f"{self.player}@{self.objective}"
+
+    def __iter__(self):
+        yield self.player
+        yield self.objective
 
 
 class NbtVar(Variable):

@@ -51,8 +51,9 @@ NbtVar[list[str]] -> NbtVar[str]:
 
 def score_to_score(src: ScoreboardVar, dst: ScoreboardVar) -> list[Command]:
     return [
-        LiteralCommand(f"scoreboard players operation {dst.objective} {dst.player} = {src.objective} {src.player}"
-                       )
+        # LiteralCommand(f"scoreboard players operation {dst.objective} {dst.player} = {src.objective} {src.player}"),
+        LiteralCommand(f"scoreboard players operation %s %s = %s %s",
+                       dst.player, dst.objective, src.player, src.objective)
     ]
 
 
@@ -60,15 +61,14 @@ def score_to_nbt(src: ScoreboardVar, dst: NbtVar[NumberType]) -> list[Command]:
     return [
         LiteralCommand(
             f"execute store result {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} {dst.dtype} 1 "
-            f"run scoreboard players get {src.objective} {src.player}"
+            f"run scoreboard players get %s %s", src.player, src.objective
         )
     ]
 
 
 def const_to_score(src: ConstExpr[WholeNumberType], dst: ScoreboardVar) -> list[Command]:
     return [
-        LiteralCommand(f"scoreboard players set {dst.objective} {dst.player} {src.value}"
-                       )
+        LiteralCommand(f"scoreboard players set %s %s {src.value}", dst.player, dst.objective)
     ]
 
 
@@ -83,8 +83,8 @@ def const_to_nbt(src: ConstExpr[T_concrete], dst: NbtVar[T_concrete]) -> list[Co
 def nbt_to_score(src: NbtVar, dst: ScoreboardVar) -> list[Command]:
     return [
         LiteralCommand(
-            f"execute store result score {dst.objective} {dst.player} run data get {src.nbt_container_type} "
-            f"{src.nbt_container_argument} {src.path}"
+            f"execute store result score %s %s run data get {src.nbt_container_type} "
+            f"{src.nbt_container_argument} {src.path}", dst.player, dst.objective
         )
     ]
 

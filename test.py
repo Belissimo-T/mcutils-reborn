@@ -21,4 +21,4 @@ with Namespace("test_namespace") as test_namespace:
 
 dp = Datapack("test_datapack")
 dp.add(test_namespace, std_namespace)
-dp.to_beet_pack().save(overwrite=True)
+dp.export().save(overwrite=True)

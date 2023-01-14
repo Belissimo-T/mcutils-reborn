@@ -3,6 +3,7 @@ from ..commands import *
 from ..expressions import ConstInt
 from ..conversion import var_to_var
 
+
 with std_namespace.create_namespace("object") as std_object:
     STD_OBJ_RET_TAG = UniqueTag("object_ret", std_object)
     STD_OBJ_RET_SEL = CompositeString("@e[tag=%s]", STD_OBJ_RET_TAG)
@@ -15,7 +16,7 @@ with std_namespace.create_namespace("object") as std_object:
             LiteralCommand("scoreboard objectives add %s dummy", STD_OBJ_ID_OBJECTIVE),
 
             Comment("initialize the object id counter"),
-            *var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
+            var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
 
             *tools.log("mcutils_reborn", " * Loaded object library!"),
         )
@@ -30,11 +31,10 @@ with std_namespace.create_namespace("object") as std_object:
             )
 
             std_object_object_new.add_command(
-                *tag_remove_all(_STD_OBJ_TEMP_TAG),
-                *tag_remove_all(STD_OBJ_RET_TAG),
+                *tools.tag_remove_all(_STD_OBJ_TEMP_TAG),
+                *tools.tag_remove_all(STD_OBJ_RET_TAG),
 
                 Comment("increment the object id counter"),
-                LiteralCommand("# Selector is %s", STD_OBJ_RET_SEL),
                 LiteralCommand('scoreboard players add %s %s 1', *STD_OBJ_ID_COUNTER),
 
                 Comment("summon a marker with the temp tag"),
@@ -58,7 +58,7 @@ with std_namespace.create_namespace("object") as std_object:
             """Assign the object with the given id a tag."""
         )
         std_object_fetch_object.add_command(
-            *tag_remove_all(STD_OBJ_RET_TAG),
+            *tools.tag_remove_all(STD_OBJ_RET_TAG),
 
             Comment("give the selected entity the tag"),
             LiteralCommand("execute as @e[tag=%s] if score @s %s = %s %s run tag @s add %s",
@@ -94,5 +94,10 @@ with std_namespace.create_namespace("object") as std_object:
             )
 
             std_object_garbage_collect.add_command(
-                SayCommand("!! HIT garbage_collect STUB !!")
+                SayCommand("!! HIT garbage_collect STUB !!"),
+
+                Comment("remove all objects with a reference count of 0"),
+
+                Comment("remove all objects that are not referenced by the local scopes")
+
             )

@@ -132,8 +132,32 @@ class Function(Namespace):
         for command in commands_:
             self.current_mcfunction.add_command(command)
 
-    def c_call_function(self, function: "Function", *args: "Expression"):
+    def comment(self, *args, **kwargs):
+        self.add_command(Comment(*args, **kwargs))
+
+    def c_call_function(self,
+                        function: "Function", *,
+                        arg: "Expression | None" = None,
+                        varargs: typing.Sequence["Expression"] = ()):
+        self.comment(f"calling function %s"
+                     f"{' with STD_ARG' * bool(arg)}"
+                     f"{f' with {len(varargs)} varargs' * bool(varargs)}",
+                     PathString(function))
+
+        for i, vararg in enumerate(varargs):
+            # self.comment(f"push vararg {i}:")
+            self.c_call_function(std_stack_push(stack_nr=STD_ARGSTACK), arg=vararg)
+
+        if arg is not None:
+            # self.comment(f"set STD_ARG")
+            self.add_command(
+                var_to_var(arg, STD_ARG)
+            )
+
+        # self.comment(f"call function")
         self.add_command(FunctionCall(function.entry_point))
+
+        # self.comment("done")
 
     def c_if(self):
         raise NotImplementedError
@@ -145,7 +169,7 @@ class Function(Namespace):
         from .lib.std import STD_RET
 
         self.add_command(
-            *var_to_var(var, STD_RET)
+            var_to_var(var, STD_RET)
         )
 
 
@@ -189,7 +213,7 @@ class Class(Namespace):
 
 from .commands import *
 from .expressions import *
-from .conversion import var_to_var
+from .conversion import var_to_var, add_in_place
 from .lib.std import *
 from .exceptions import *
 from .export import *

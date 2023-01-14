@@ -49,78 +49,72 @@ NbtVar[list[str]] -> NbtVar[str]:
 """
 
 
-def score_to_score(src: ScoreboardVar, dst: ScoreboardVar) -> list[Command]:
-    return [
-        # LiteralCommand(f"scoreboard players operation {dst.objective} {dst.player} = {src.objective} {src.player}"),
-        LiteralCommand(f"scoreboard players operation %s %s = %s %s",
-                       dst.player, dst.objective, src.player, src.objective)
-    ]
+def score_to_score(src: ScoreboardVar, dst: ScoreboardVar) -> Command:
+    return LiteralCommand(f"scoreboard players operation %s %s = %s %s",
+                          dst.player, dst.objective, src.player, src.objective)
 
 
-def score_to_nbt(src: ScoreboardVar, dst: NbtVar[NumberType]) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"execute store result {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} {dst.dtype} 1 "
-            f"run scoreboard players get %s %s", src.player, src.objective
-        )
-    ]
+def score_to_nbt(src: ScoreboardVar, dst: NbtVar[NumberType], scale: float = 1) -> Command:
+    return LiteralCommand(
+        f"execute store result {dst.nbt_container_type} %s {dst.path} {dst.dtype} {scale} "
+        f"run scoreboard players get %s %s",
+
+        dst.nbt_container_argument,
+        src.player, src.objective
+    )
 
 
-def const_to_score(src: ConstExpr[WholeNumberType], dst: ScoreboardVar) -> list[Command]:
-    return [
-        LiteralCommand(f"scoreboard players set %s %s {src.value}", dst.player, dst.objective)
-    ]
+def const_to_score(src: ConstExpr[WholeNumberType], dst: ScoreboardVar) -> Command:
+    return LiteralCommand(f"scoreboard players set %s %s {src.value}", dst.player, dst.objective)
 
 
-def const_to_nbt(src: ConstExpr[T_concrete], dst: NbtVar[T_concrete]) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"data modify {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} set value {src.value}"
-        )
-    ]
+def const_to_nbt(src: ConstExpr[T_concrete], dst: NbtVar[T_concrete]) -> Command:
+    return LiteralCommand(
+        f"data modify {dst.nbt_container_type} %s {dst.path} set value {src.value}",
+        dst.nbt_container_argument
+    )
 
 
-def nbt_to_score(src: NbtVar, dst: ScoreboardVar) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"execute store result score %s %s run data get {src.nbt_container_type} "
-            f"{src.nbt_container_argument} {src.path}", dst.player, dst.objective
-        )
-    ]
+def nbt_to_score(src: NbtVar, dst: ScoreboardVar, scale: float = 1) -> Command:
+    return LiteralCommand(
+        f"execute store result score %s %s run data get {src.nbt_container_type} "
+        f"%s {src.path} {scale}",
+
+        dst.player, dst.objective,
+        src.nbt_container_argument
+    )
 
 
-def nbt_to_same_nbt(src: NbtVar[T_concrete], dst: NbtVar[T_concrete]) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"data modify {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} "
-            f"set from {src.nbt_container_type} {src.nbt_container_argument} {src.path}"
-        )
-    ]
+def nbt_to_same_nbt(src: NbtVar[T_concrete], dst: NbtVar[T_concrete]) -> Command:
+    return LiteralCommand(
+        f"data modify {dst.nbt_container_type} %s {dst.path} "
+        f"set from {src.nbt_container_type} %s {src.path}",
+        dst.nbt_container_argument,
+        src.nbt_container_argument
+    )
 
 
 def nbt_number_to_nbt_number(src: NbtVar[NumberType],
-                             dst: NbtVar[NumberType]) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"execute store result {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} {dst.dtype} "
-            f"0.00000001 run data get {src.nbt_container_type} {src.nbt_container_argument} {src.path} 100000000"
-        )
-    ]
+                             dst: NbtVar[NumberType]) -> Command:
+    return nbt_to_nbt_execute_store(src, dst, scale=10e10, scale2=10e-10)
 
 
-def nbt_container_to_number(src: NbtVar[CompoundType | ListType | StringType],
-                            dst: NbtVar[NumberType]) -> list[Command]:
-    return [
-        LiteralCommand(
-            f"execute store result {dst.nbt_container_type} {dst.nbt_container_argument} {dst.path} {dst.dtype} 1 "
-            f"run data get {src.nbt_container_type} {src.nbt_container_argument} {src.path} 1"
-        )
-    ]
+def nbt_to_nbt_execute_store(src: NbtVar[CompoundType | ListType | StringType | NumberType],
+                             dst: NbtVar[NumberType],
+                             scale: float = 1,
+                             scale2: float = 1) -> Command:
+    return LiteralCommand(
+        f"execute store result {dst.nbt_container_type} %s {dst.path} {dst.dtype} {scale2} "
+        f"run data get {src.nbt_container_type} %s {src.path} {scale}",
+        dst.nbt_container_argument,
+        src.nbt_container_argument
+    )
 
 
-def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
+def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> Command:
     if isinstance(src, ScoreboardVar):
         if isinstance(dst, ScoreboardVar):
+            assert scale == 1
             return score_to_score(src, dst)
 
         if isinstance(dst, NbtVar):
@@ -131,9 +125,10 @@ def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
             if not dst.is_datatype(ConcreteDataType):
                 raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
 
-            return score_to_nbt(src, dst)
+            return score_to_nbt(src, dst, scale)
 
     if isinstance(src, ConstExpr):
+        assert scale == 1
         if isinstance(dst, ScoreboardVar):
             if not src.is_datatype(WholeNumberType):
                 raise CompilationError(f"Only ConstExpr of WholeNumberType, not {src.dtype_name} can be stored in a "
@@ -150,10 +145,14 @@ def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
     if isinstance(src, NbtVar):
         if isinstance(dst, ScoreboardVar):
             # no type guard needed, all types are valid
-            return nbt_to_score(src, dst)
+            return nbt_to_score(src, dst, scale)
 
         if isinstance(dst, NbtVar):
-            if dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype):
+            if src.is_datatype(AnyDataType) or dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype):
+                if src.is_datatype(AnyDataType) and not dst.is_datatype(AnyDataType):
+                    issue_warning(CompilationWarning(f"Assuming dtype of source {src!r} is the same as {dst!r}."))
+
+                assert scale == 1
                 return nbt_to_same_nbt(src, dst)
 
             if src.is_datatype(NumberType) and dst.is_datatype(NumberType):
@@ -161,43 +160,116 @@ def _var_to_var(src: Expression, dst: Variable) -> list[Command]:
                     raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
 
                 if src.dtype is None and dst.dtype == "double":
+                    # TODO:
+                    #   it is possible to get the dtype of an nbt tag at runtime through
+                    #   put the tag in a list, then
+                    #   execute store success ... run data modify ... set value 1.0d
+                    #   this will fail if the tag is not a double
                     issue_warning(CompilationWarning(
-                        f"Set from {src.dtype_name} NbtVar to double NbtVar: Due currently unknown reasons, it is not "
-                        f"possible to do type conversion from an unknown dtype to a double without rounding to a float."
-                        f" That means a (potential) double will be rounded to a float."
+                        f"Set from {src.dtype_name} NbtVar to double NbtVar: It is not possible to do type conversion "
+                        f"from an unknown dtype to a double without rounding to a float when using scoreboards as an "
+                        f"intermediate. That means a (potential) double will be rounded to a float. "
                         f"In case you want to actually fetch a nbt double into another nbt double, add type "
                         f"information to both NbtVars."
                     ))
+                assert scale == 1
                 return nbt_number_to_nbt_number(src, dst)
 
             if src.is_datatype((CompoundType, ListType, StringType)) and dst.is_datatype(NumberType):
                 if not dst.is_datatype(ConcreteDataType):
                     raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
 
-                return nbt_container_to_number(src, dst)
+                return nbt_to_nbt_execute_store(src, dst, scale)
 
             raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
 
     raise CompilationError(f"Cannot set {src!r} to {dst!r}.")
 
 
-def var_to_var(src: Expression, dst: Variable) -> list[Command]:
+def add_const_to_score(src: ScoreboardVar, increment: ConstExpr[NumberType]) -> list[Command]:
+    val = float(increment.value)
+
+    if val < 0:
+        return [
+            LiteralCommand(f"scoreboard players remove %s %s {abs(val)}", src.player, src.objective)
+        ]
+
     return [
-        # Comment(f"set {src!r} to {dst!r}"),
-        *_var_to_var(src, dst),
+        LiteralCommand(f"scoreboard players add %s %s {val}", src.player, src.objective)
     ]
 
 
-"""
-# Operations
+def add_const(src: Variable[NumberType], increment: ConstExpr[NumberType]) -> list[Command]:
+    if isinstance(src, ScoreboardVar):
+        return add_const_to_score(src, increment)
 
-ScoreboardVar += ConstExpr[number]:
- * scoreboard players add <pl> <ob> <val>
- * scoreboard players remove <pl> <ob> <val>
+    if isinstance(src, NbtVar):
+        if not src.is_datatype((NumberType, AnyDataType)):
+            raise CompilationError(f"Cannot add {increment!r} to non-NumberType {src!r}.")
 
-ScoreboardVar += ScoreboardVar:
- * scoreboard players operation <pl1> <ob1> += <pl2> <ob2>
- * scoreboard players operation <pl1> <ob1> -= <pl2> <ob2>
+        if src.is_datatype(ConcreteDataType):
+            if src.dtype == "double":
+                temp_tag = UniqueTag("add_const_to_double_temp")
+                temp_sel = CompositeString("@e[tag=%s, limit=1]", temp_tag)
+
+                return [
+                    # 1. summon an entity
+                    LiteralCommand('summon minecraft:marker 0 0 0 {Tags:["%s"]}', temp_tag),
+
+                    # 2. set pos
+                    LiteralCommand('data modify entity %s Pos[0] set from %s %s %s', temp_sel, *src),
+
+                    # 3. tp by increment
+                    LiteralCommand(f"execute as %s at @s run tp @s ~{increment.value} ~ ~", temp_sel),
+
+                    # 4. read pos
+                    var_to_var(NbtVar[DoubleType]("entity", temp_sel, "Pos[0]"), src),
+
+                    # 5. kill
+                    LiteralCommand("kill %s", temp_sel)
+                ]
+            from .lib.std import STD_TEMP_OBJECTIVE
+
+            temp_var = ScoreboardVar("add_const_to_nbt", STD_TEMP_OBJECTIVE)
+            return [
+                var_to_var(src, temp_var, scale=10e10),
+                *add_const_to_score(temp_var, increment),
+                var_to_var(temp_var, src, scale=10e-10),
+            ]
+
+        raise CompilationError(f"Adding to an unknown-dtype NbtVar is not supported yet.")
 
 
-"""
+def add_score_to_score_in_place(src: ScoreboardVar, increment: ScoreboardVar) -> list[Command]:
+    return [
+        LiteralCommand("scoreboard players operation %s %s += %s %s",
+                       *src, *increment)
+    ]
+
+
+def add_in_place(src: Variable[NumberType], increment: Expression[NumberType]) -> list[Command]:
+    if isinstance(increment, ConstExpr):
+        return add_const(src, increment)
+
+    if isinstance(src, ScoreboardVar):
+        if isinstance(increment, ScoreboardVar):
+            return add_score_to_score_in_place(src, increment)
+
+        if isinstance(increment, NbtVar):
+            if not increment.is_datatype(WholeNumberType):
+                raise CompilationError(f"Cannot add {increment!r} to {src!r}. Increment must be a whole number.")
+
+            from .lib.std import STD_TEMP_OBJECTIVE
+
+            temp_var = ScoreboardVar("add_in_place_temp", STD_TEMP_OBJECTIVE)
+            return [
+                var_to_var(increment, temp_var),
+                *add_score_to_score_in_place(src, temp_var)
+            ]
+
+    if isinstance(src, NbtVar):
+        if isinstance(increment, ScoreboardVar):
+            raise CompilationError(f"Cannot add {increment!r} to {src!r} yet.")
+
+        if isinstance(increment, NbtVar):
+            raise CompilationError(f"No known way to add {increment!r} to {src!r}.")

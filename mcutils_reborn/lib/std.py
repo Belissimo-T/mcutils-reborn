@@ -1,17 +1,10 @@
 from .. import Namespace
-from ..commands import UniqueScoreboardObjective, Comment, Command, FunctionCall, LiteralCommand, UniqueTag
+from ..commands import UniqueScoreboardObjective, Comment, FunctionCall, LiteralCommand, UniqueTag
 from .. import tools
-
-
-def tag_remove_all(tag: UniqueTag | str) -> list[Command]:
-    return [
-        Comment("remove the temp tag from all entities"),
-        LiteralCommand("tag @e remove %s", tag),
-    ]
-
 
 std_namespace = Namespace("mcutils_reborn_std")
 STD_OBJECTIVE = UniqueScoreboardObjective("mcutils_reborn", std_namespace)
+STD_TEMP_OBJECTIVE = UniqueScoreboardObjective("mcutils_reborn_temp", std_namespace)
 
 STD_ARG = std_namespace.get_unique_scoreboard_var("arg")
 STD_RET = std_namespace.get_unique_scoreboard_var("ret")

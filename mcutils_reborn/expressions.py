@@ -169,7 +169,7 @@ class NbtVar(Variable):
 
     def __init__(self,
                  nbt_container_type: _nbt_container_type_literal,
-                 nbt_container_argument: str,
+                 nbt_container_argument: str | UniqueString,
                  path: str = ""):
         self.nbt_container_type = nbt_container_type
         self.nbt_container_argument = nbt_container_argument
@@ -179,8 +179,13 @@ class NbtVar(Variable):
                    curr_text_kwargs: dict[str, typing.Any],
                    resolve: typing.Callable[[UniqueString | str], str]
                    ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
-        return [], [tellraw.NBT(self.path, **{self.nbt_container_type: self.nbt_container_argument},
+        return [], [tellraw.NBT(self.path, **{self.nbt_container_type: resolve(self.nbt_container_argument)},
                                 **curr_text_kwargs)]
+
+    def __iter__(self):
+        yield self.nbt_container_type
+        yield self.nbt_container_argument
+        yield self.path
 
     def __repr__(self):
         return f"{self.__class__.__name__}[{self.dtype_name}]({self.nbt_container_type!r}, " \

@@ -1,9 +1,10 @@
 import os
 import beet
 
-from . import Namespace, FunctionTag, MCFunction
+from . import Namespace, FunctionTag, Pathable
 from .paths import *
-from .commands import LiteralCommand, UniqueString, Command
+from .commands import LiteralCommand, UniqueString, Command, NonUniqueString
+from .exceptions import CompilationError
 
 
 class Datapack(Namespace):
@@ -38,13 +39,17 @@ class Datapack(Namespace):
                     if unique_string.namespace is None:
                         unique_string.namespace = mcfunc
 
-        unique_strings = {}
-        existing_strings = set()
+        # resolve all unique strings
+        def path_of_func(pathable: Pathable) -> str:
+            return ("#" if isinstance(pathable, FunctionTag) else "") + path_to_str(pathable.path())
+
+        unique_strings: dict[UniqueString, str] = {}
+        existing_strings: set[str] = set()
 
         # noinspection PyShadowingNames
         def resolve(unique_string: UniqueString) -> str:
             if unique_string not in unique_strings:
-                unique_strings[unique_string] = unique_string.get(existing_strings, resolve)
+                unique_strings[unique_string] = unique_string.get(existing_strings, resolve, path_of_func)
                 existing_strings.add(unique_strings[unique_string])
 
             return unique_strings[unique_string]
@@ -54,11 +59,18 @@ class Datapack(Namespace):
                 for unique_string in command.get_unique_strings():
                     resolve(unique_string)
 
+        _max_name_len = max(len(s.__class__.__name__) for s in unique_strings)
+        _max_args_len = max(len(repr(s.value)) for s in unique_strings)
+
         for unique_string, string in unique_strings.items():
-            print(f" * {unique_string} -> {string!r}")
+            if isinstance(unique_string, NonUniqueString):
+                continue
+
+            print(f" * {unique_string.__class__.__name__: <{_max_name_len}} "
+                  f"{unique_string.value!r: <{_max_args_len}} "
+                  f"-> {string!r}")
 
         def get_mcfunc_content(commands: list[Command],
-                               path_of_func: typing.Callable[["MCFunction"], str],
                                strings: dict["UniqueString", str]) -> list[str]:
             return [cmd.get_str(path_of_func, strings) for cmd in commands]
 
@@ -89,14 +101,10 @@ class Datapack(Namespace):
                 *mcfunc.commands
             ]
 
-            content = get_mcfunc_content(
-                commands,
-
-                lambda pathable:
-                ("#" if isinstance(pathable, FunctionTag) else "") + path_to_str(pathable.path()),
-
-                unique_strings
-            )
+            try:
+                content = get_mcfunc_content(commands, unique_strings)
+            except CompilationError as e:
+                raise CompilationError(f"Error getting command string in function {path_to_str(mcfunc.path())}") from e
 
             # noinspection PyTypeChecker
             out[path_to_str(path)] = beet.Function(content, tags=tags)
@@ -106,3 +114,7 @@ class Datapack(Namespace):
             tag.data["replace"] = False
 
         return out
+
+
+path_of_func_callable = typing.Callable[[Pathable], str]
+resolve_callable = typing.Callable[[UniqueString | str], str]

@@ -45,7 +45,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
         out = Function(f"peek_{stack_nr}")
 
         out.add_command(
-            *tag_remove_all(_STD_STACK_TEMP_TAG),
+            *tools.tag_remove_all(_STD_STACK_TEMP_TAG),
 
             Comment("select entity"),
             LiteralCommand("execute as @e[tag=%s] if score @s %s = %s %s run tag @s add %s",
@@ -53,7 +53,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_TAG),
 
             Comment("return value"),
-            *var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
+            var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
         )
 
         return out
@@ -66,7 +66,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
         )
 
         out.add_command(
-            *tag_remove_all(_STD_STACK_TEMP_TAG),
+            *tools.tag_remove_all(_STD_STACK_TEMP_TAG),
 
             Comment("summon the entity"),
             LiteralCommand('summon minecraft:marker 0 0 0 {Tags:["%s", "%s", "%s", "%s"]}',
@@ -80,7 +80,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_SEL, STD_STACK_INDEX_OBJECTIVE, *stack_len_of_stacknr(stack_nr)),
 
             Comment("set value"),
-            *var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
+            var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
         )
 
         return out
@@ -109,3 +109,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
     std_stack_peek = std_stack_namespace.create_template("peek", std_stack_peek_template)
     std_stack_push = std_stack_namespace.create_template("push", std_stack_push_template)
     std_stack_pop = std_stack_namespace.create_template("pop", std_stack_pop_template)
+
+    STD_ARGSTACK = 0
+    STD_EXPRSTACK = 1
+    STD_CALLSTACK = 2

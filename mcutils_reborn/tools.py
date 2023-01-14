@@ -3,7 +3,7 @@ import typing
 from .expressions import Expression
 from .commands import UniqueString, Command, LiteralCommand, DynamicCommand
 from .exceptions import CompilationError
-from . import tellraw
+from . import tellraw, UniqueTag, Command, Comment, LiteralCommand
 
 
 def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextComponent | UniqueString,
@@ -58,3 +58,10 @@ def print_(*args: str | dict[str, str | bool] | Expression | tellraw.TextCompone
 def log(prefix: str | UniqueString | Expression | tellraw.TextComponent, *args):
     """Print [prefix] *args."""
     return print_({"color": "light_purple"}, "[", prefix, "]", {"color": tellraw.UNSET}, " ", *args)
+
+
+def tag_remove_all(tag: UniqueTag | str) -> list[Command]:
+    return [
+        Comment("remove the temp tag from all entities"),
+        LiteralCommand("tag @e remove %s", tag),
+    ]

@@ -30,6 +30,42 @@ with Namespace("mcutils_test") as test_namespace:
             *tools.print_(" * player pos x + 1: ", {"color": "gold"}, NbtVar("storage", "my:storage", "testtest")),
         )
 
+    with test_namespace.create_function("return_test") as return_test:
+        with return_test.create_function("add_one") as return_test_add_one:
+            return_test_add_one.add_command(
+                var_to_var(STD_ARG, STD_RET),
+                *add_in_place(STD_RET, ConstInt(1)),
+            )
+
+        return_test.c_call_function(
+            return_test_add_one,
+            arg=ConstInt(5),
+        )
+
+        return_test.add_command(
+            *tools.print_(" * 5 + 1: ", {"color": "gold"}, STD_RET),
+
+            var_to_var(STD_RET, STD_ARG),
+        )
+
+        with return_test.c_if(ScoreCondition(STD_RET, "=", STD_ARG)) as return_test_if:
+            return_test_if.add_command(
+                *tools.print_("STD RET == STD ARG"),
+            )
+
+            with return_test_if.c_if(ScoreConditionMatches(STD_RET, "=", "6")) as return_test_if_if:
+                return_test_if_if.add_command(
+                    *tools.print_("STD RET == 6"),
+                )
+
+            return_test_if.add_command(
+                *tools.print_("END if")
+            )
+
+        return_test.add_command(
+            *tools.print_("END")
+        )
+
     with test_namespace.create_function("test_function2") as test_function2:
         test_function2.c_call_function(stack_test)
 

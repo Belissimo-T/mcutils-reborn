@@ -144,4 +144,15 @@ class DynamicCommand(Command):
         return self.func(path_of_func, resolve)
 
 
+class ComposedCommand(Command):
+    def __init__(self, *commands: Command):
+        self.commands = commands
+
+    def get_str(self, path_of_func: "path_of_func_callable", strings: dict[UniqueString, str]) -> str:
+        return " ".join(
+            command.get_str(path_of_func, strings)
+            for command in self.commands
+        )
+
+
 from .export import path_of_func_callable, resolve_callable

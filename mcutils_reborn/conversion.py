@@ -187,7 +187,7 @@ def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> Command:
 
 
 def add_const_to_score(src: ScoreboardVar, increment: ConstExpr[NumberType]) -> list[Command]:
-    val = float(increment.value)
+    val = int(increment.value)
 
     if val < 0:
         return [

@@ -3,7 +3,7 @@ import beet
 
 from . import Namespace, FunctionTag, Pathable
 from .paths import *
-from .commands import LiteralCommand, UniqueString, Command, NonUniqueString
+from .commands import LiteralCommand, UniqueString, Command, NonUniqueString, FunctionCall, Comment
 from .exceptions import CompilationError
 
 
@@ -98,13 +98,14 @@ class Datapack(Namespace):
                 LiteralCommand(f"#> {path_to_str(path)}"),
                 *description_comment,
                 *handles_comment,
-                *mcfunc.commands
+                *mcfunc.commands,
+                FunctionCall(mcfunc.continuation) if mcfunc.continuation else Comment("no continuation")
             ]
 
             try:
                 content = get_mcfunc_content(commands, unique_strings)
             except CompilationError as e:
-                raise CompilationError(f"Error getting command string in function {path_to_str(mcfunc.path())}") from e
+                raise CompilationError(f"Error getting command string in function {path_to_str(mcfunc.path())}.") from e
 
             # noinspection PyTypeChecker
             out[path_to_str(path)] = beet.Function(content, tags=tags)

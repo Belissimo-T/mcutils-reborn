@@ -71,6 +71,9 @@ class Namespace(Pathable):
                 mcfunctions[tuple(child.path())] = child
 
             elif isinstance(child, Namespace):
+                if isinstance(child, Function):
+                    assert child.was_ended, f"Function {path_to_str(child.path())} was not ended"
+
                 mcfunctions |= child.get_all_mcfunctions()
 
         return mcfunctions
@@ -96,11 +99,12 @@ class FunctionTag(Pathable):
 class MCFunction(Pathable):
     """Represents a single mcfunction file."""
 
-    def __init__(self, name: str, tags: set[str | FunctionTag], description: str = ""):
+    def __init__(self, name: str, tags: set[str | FunctionTag] | None = None, description: str = ""):
         self.description = description
         self.name = name
-        self.tags = tags
+        self.tags = set() if tags is None else tags
         self.commands: list[Command] = []
+        self.continuation: MCFunction | None = None
 
     def add_command(self, command: "Command"):
         self.commands.append(command)
@@ -115,8 +119,12 @@ class Function(Namespace):
         tags = set() if tags is None else tags
 
         self.args = args
+
+        self.continuation: MCFunction | None = None
         self.entry_point = self.create_mcfunction(self.name, tags=tags, description=description)
         self.current_mcfunction = self.entry_point
+
+        self.was_ended = False
 
         self.init()
 
@@ -129,6 +137,8 @@ class Function(Namespace):
         ...
 
     def add_command(self, *commands_: "Command"):
+        assert not self.was_ended
+
         for command in commands_:
             self.current_mcfunction.add_command(command)
 
@@ -159,11 +169,35 @@ class Function(Namespace):
 
         # self.comment("done")
 
-    def c_if(self):
-        raise NotImplementedError
+    def c_if(self, condition: "Condition") -> "Function":
+        if_ = self.create_function(f"if{len(self.children)}")
+        new_mcfunc = self.create_mcfunction(f"if-continue{len(self.children)}")
+
+        string, u_strings = condition.to_str()
+        self.add_command(
+            ComposedCommand(
+                LiteralCommand(f"execute if {string} run", *u_strings),
+                FunctionCall(if_.entry_point)
+            ),
+            ComposedCommand(
+                LiteralCommand(f"execute unless {string} run", *u_strings),
+                FunctionCall(new_mcfunc)
+            )
+        )
+
+        if_.continuation = self.current_mcfunction = new_mcfunc
+
+        return if_
 
     def c_while(self):
         raise NotImplementedError
+
+    def end(self):
+        if self.was_ended:
+            return
+
+        self.current_mcfunction.continuation = self.continuation
+        self.was_ended = True
 
     def return_(self, var: "Expression"):
         from .lib.std import STD_RET
@@ -171,6 +205,11 @@ class Function(Namespace):
         self.add_command(
             var_to_var(var, STD_RET)
         )
+
+        self.current_mcfunction.continuation = None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.end()
 
 
 class Template(Namespace):
@@ -186,6 +225,7 @@ class Template(Namespace):
 
         if converted_kwargs not in self.functions:
             func = self.template(**kwargs)
+            func.end()
             self.functions[converted_kwargs] = func
             self.add(func)
 
@@ -217,4 +257,5 @@ from .conversion import var_to_var, add_in_place
 from .lib.std import *
 from .exceptions import *
 from .export import *
+from .conditions import *
 from . import tools

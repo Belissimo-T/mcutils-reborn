@@ -200,7 +200,7 @@ class Function(Namespace):
             description=f"While-loop of {self.name}",
         )
 
-        iteration_number = self.get_unique_scoreboard_var("_is_first_iteration")
+        iteration_number = self.get_unique_scoreboard_var("_iteration_number")
         while_function.add_command(
             *conversion.add_in_place(iteration_number, ConstInt(1))
         )
@@ -257,7 +257,7 @@ class Function(Namespace):
 
         self.continuation = None
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, tb):
         self.end()
 
 

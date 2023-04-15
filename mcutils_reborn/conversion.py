@@ -186,6 +186,18 @@ def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> list[Command
 
             raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
 
+    if isinstance(src, ComplexVar):
+        if isinstance(dst, (NbtVar, ScoreboardVar)):
+            return [
+                *src.to_primitive_var(dst)
+            ]
+
+    if isinstance(dst, ComplexVar):
+        if isinstance(src, (NbtVar, ScoreboardVar)):
+            return [
+                *dst.from_primitive_var(src)
+            ]
+
     raise CompilationError(f"Cannot set {src!r} to {dst!r}.")
 
 

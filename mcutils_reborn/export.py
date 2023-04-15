@@ -99,8 +99,16 @@ class Datapack(Namespace):
                 *description_comment,
                 *handles_comment,
                 *mcfunc.commands,
-                FunctionCall(mcfunc.continuation) if mcfunc.continuation else Comment("no continuation")
             ]
+            if mcfunc.continuation:
+                commands += [
+                    Comment("Continuation:"),
+                    FunctionCall(mcfunc.continuation)
+                ]
+            else:
+                commands += [
+                    Comment("No continuation.")
+                ]
 
             try:
                 content = get_mcfunc_content(commands, unique_strings)

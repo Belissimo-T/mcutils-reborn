@@ -6,7 +6,7 @@ from ..conversion import var_to_var
 
 with std_namespace.create_namespace("object") as std_object:
     STD_OBJ_RET_TAG = UniqueTag("object_ret", std_object)
-    STD_OBJ_RET_SEL = CompositeString("@e[tag=%s]", STD_OBJ_RET_TAG)
+    STD_OBJ_RET_SEL = CompositeString("@e[tag=%s, limit=1]", STD_OBJ_RET_TAG)
     STD_OBJ_ID_OBJECTIVE = UniqueScoreboardObjective("id", std_object)
     STD_OBJ_ID_COUNTER = std_object.get_unique_scoreboard_var("obj_id_counter")
 
@@ -16,7 +16,7 @@ with std_namespace.create_namespace("object") as std_object:
             LiteralCommand("scoreboard objectives add %s dummy", STD_OBJ_ID_OBJECTIVE),
 
             Comment("initialize the object id counter"),
-            var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
+            *var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
 
             *tools.log("mcutils_reborn", " * Loaded object library!"),
         )
@@ -53,7 +53,7 @@ with std_namespace.create_namespace("object") as std_object:
                 "Initialize an object. This function is supposed to be overridden."
             )
 
-    with std_object.create_function("fetch_object", args=("obj_id",)) as std_object_fetch_object:
+    with std_object.create_function("fetch_object", args=()) as std_object_fetch_object:
         std_object_fetch_object.describe(
             """Assign the object with the given id a tag."""
         )

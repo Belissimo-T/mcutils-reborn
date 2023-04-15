@@ -20,9 +20,11 @@ with std_namespace.create_function("load", tags={"minecraft:load"}) as load:
 
         Comment("create the std objective"),
         LiteralCommand("scoreboard objectives add %s dummy", STD_OBJECTIVE),
+        LiteralCommand("scoreboard objectives add %s dummy", STD_TEMP_OBJECTIVE),
 
         Comment("reset the std objective"),
         LiteralCommand("scoreboard players reset * %s", STD_OBJECTIVE),
+        LiteralCommand("scoreboard players reset * %s", STD_TEMP_OBJECTIVE),
 
         Comment("Kill all entities with the std tag"),
         LiteralCommand("kill @e[tag=%s]", STD_TAG),

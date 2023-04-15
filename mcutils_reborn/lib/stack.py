@@ -53,7 +53,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_TAG),
 
             Comment("return value"),
-            var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
+            *var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
         )
 
         return out
@@ -80,7 +80,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_SEL, STD_STACK_INDEX_OBJECTIVE, *stack_len_of_stacknr(stack_nr)),
 
             Comment("set value"),
-            var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
+            *var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
         )
 
         return out
@@ -92,9 +92,9 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
             "Pop an item from the stack."
         )
 
-        out.c_call_function(std_stack_peek(stack_nr=stack_nr))
-
         out.add_command(
+            *tools.call_function(std_stack_peek(stack_nr=stack_nr)),
+
             Comment("remove the entity"),
             LiteralCommand("kill %s", _STD_STACK_TEMP_SEL),
 

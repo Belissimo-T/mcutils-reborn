@@ -83,10 +83,13 @@ class Namespace(Pathable):
             self.children[namespace.name] = namespace
             namespace.parent = self
 
+    def __repr__(self):
+        return path_to_str(self.path())
+
     def __enter__(self):
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, tb):
         pass
 
 
@@ -97,7 +100,7 @@ class FunctionTag(Pathable):
 
 
 class MCFunction(Pathable):
-    """Represents a single mcfunction file."""
+    """Represents a single .mcfunction file."""
 
     def __init__(self, name: str, tags: set[str | FunctionTag] | None = None, description: str = ""):
         self.description = description
@@ -106,14 +109,15 @@ class MCFunction(Pathable):
         self.commands: list[Command] = []
         self.continuation: MCFunction | None = None
 
-    def add_command(self, command: "Command"):
-        self.commands.append(command)
+    def add_command(self, *commands_: "Command"):
+        self.commands.extend(commands_)
 
 
 class Function(Namespace):
     """Represents a function. May contain multiple mcfunctions."""
 
-    def __init__(self, name: str, args: tuple[str] = (), *, description: str = "", tags: set[str | FunctionTag] = None):
+    def __init__(self, name: str, args: tuple[str] = (), *, description: str = "", tags: set[str | FunctionTag] = None,
+                 entry_point_name: str | None = None):
         super().__init__(name)
 
         tags = set() if tags is None else tags
@@ -121,7 +125,11 @@ class Function(Namespace):
         self.args = args
 
         self.continuation: MCFunction | None = None
-        self.entry_point = self.create_mcfunction(self.name, tags=tags, description=description)
+        self.entry_point = self.create_mcfunction(
+            entry_point_name if entry_point_name is not None else self.name,
+            tags=tags,
+            description=description
+        )
         self.current_mcfunction = self.entry_point
 
         self.was_ended = False
@@ -139,58 +147,98 @@ class Function(Namespace):
     def add_command(self, *commands_: "Command"):
         assert not self.was_ended
 
-        for command in commands_:
-            self.current_mcfunction.add_command(command)
+        self.current_mcfunction.add_command(*commands_)
 
     def comment(self, *args, **kwargs):
         self.add_command(Comment(*args, **kwargs))
 
-    def c_call_function(self,
-                        function: "Function", *,
-                        arg: "Expression | None" = None,
-                        varargs: typing.Sequence["Expression"] = ()):
-        self.comment(f"calling function %s"
-                     f"{' with STD_ARG' * bool(arg)}"
-                     f"{f' with {len(varargs)} varargs' * bool(varargs)}",
-                     PathString(function))
-
-        for i, vararg in enumerate(varargs):
-            # self.comment(f"push vararg {i}:")
-            self.c_call_function(std_stack_push(stack_nr=STD_ARGSTACK), arg=vararg)
-
-        if arg is not None:
-            # self.comment(f"set STD_ARG")
-            self.add_command(
-                var_to_var(arg, STD_ARG)
-            )
-
-        # self.comment(f"call function")
-        self.add_command(FunctionCall(function.entry_point))
-
-        # self.comment("done")
-
     def c_if(self, condition: "Condition") -> "Function":
-        if_ = self.create_function(f"if{len(self.children)}")
-        new_mcfunc = self.create_mcfunction(f"if-continue{len(self.children)}")
+        if_name = f"if{len(self.children)}"
 
-        string, u_strings = condition.to_str()
+        if_function = self.create_function(
+            if_name,
+            entry_point_name="branch",
+            description=f"If-branch of {self.name}",
+        )
+
+        continuation_mcfunc = self.create_mcfunction(f"{if_name}-continue")
+
+        cond_temp_var = self.get_unique_scoreboard_var("_cond")
+        is_true_cond = ScoreConditionMatches(cond_temp_var, "1")
+
+        is_true_cond_string, is_true_cond_u_strings = is_true_cond.to_str()
+        cond_string, cond_u_strings = condition.to_str()
         self.add_command(
+            # store condition result in (global!) temp var, recursion is prohibited!
+            conversion.const_to_score(ConstInt(0), cond_temp_var),
             ComposedCommand(
-                LiteralCommand(f"execute if {string} run", *u_strings),
-                FunctionCall(if_.entry_point)
+                LiteralCommand(f"execute if {cond_string} run", *cond_u_strings),
+                conversion.const_to_score(ConstInt(1), cond_temp_var)
             ),
+
+            # if cond is true, call if_function
             ComposedCommand(
-                LiteralCommand(f"execute unless {string} run", *u_strings),
-                FunctionCall(new_mcfunc)
+                LiteralCommand(f"execute if {is_true_cond_string} run", *is_true_cond_u_strings),
+                FunctionCall(if_function.entry_point)
+            ),
+            # else just call the continuation
+            ComposedCommand(
+                LiteralCommand(f"execute unless {is_true_cond_string} run", *is_true_cond_u_strings),
+                FunctionCall(continuation_mcfunc)
             )
         )
 
-        if_.continuation = self.current_mcfunction = new_mcfunc
+        if_function.continuation = self.current_mcfunction = continuation_mcfunc
 
-        return if_
+        return if_function
 
-    def c_while(self):
-        raise NotImplementedError
+    def c_while(self, condition: "Condition") -> "Function":
+        while_name = f"while{len(self.children)}"
+        while_function = self.create_function(
+            while_name,
+            entry_point_name="loop",
+            description=f"While-loop of {self.name}",
+        )
+
+        iteration_number = self.get_unique_scoreboard_var("_is_first_iteration")
+        while_function.add_command(
+            *conversion.add_in_place(iteration_number, ConstInt(1))
+        )
+
+        check_cond_mcfunc = while_function.create_mcfunction(f"{while_name}-check-cond")
+
+        continuation_mcfunc = self.create_mcfunction(f"{while_name}-continue")
+
+        cond_str, ustr = condition.to_str()
+        check_cond_mcfunc.add_command(
+            ComposedCommand(
+                LiteralCommand(f"execute if {cond_str} run", *ustr),
+                FunctionCall(while_function.entry_point)
+            )
+        )
+        check_cond_mcfunc.add_command(
+            *add_in_place(iteration_number, ConstInt(-1))
+        )
+
+        is_first_iteration_cond = ScoreConditionMatches(iteration_number, "0")
+        is_first_iteration_cond_str, is_first_iteration_cond_ustr = is_first_iteration_cond.to_str()
+        check_cond_mcfunc.add_command(
+            ComposedCommand(
+                LiteralCommand(f"execute unless {cond_str} if {is_first_iteration_cond_str} run",
+                               *ustr, *is_first_iteration_cond_ustr),
+                FunctionCall(continuation_mcfunc)
+            )
+        )
+
+        self.add_command(
+            *var_to_var(ConstInt(0), iteration_number),
+            FunctionCall(check_cond_mcfunc)
+        )
+
+        while_function.continuation = check_cond_mcfunc
+        self.current_mcfunction = continuation_mcfunc
+
+        return while_function
 
     def end(self):
         if self.was_ended:
@@ -199,14 +247,15 @@ class Function(Namespace):
         self.current_mcfunction.continuation = self.continuation
         self.was_ended = True
 
-    def return_(self, var: "Expression"):
-        from .lib.std import STD_RET
+    def return_(self, var: "Expression | None" = None):
+        if var:
+            from .lib.std import STD_RET
 
-        self.add_command(
-            var_to_var(var, STD_RET)
-        )
+            self.add_command(
+                *var_to_var(var, STD_RET)
+            )
 
-        self.current_mcfunction.continuation = None
+        self.continuation = None
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.end()

@@ -1,9 +1,61 @@
 import typing
 
-from .expressions import Expression
-from .commands import UniqueString, Command, LiteralCommand, DynamicCommand
+from .expressions import Expression, Variable
+from .conversion import var_to_var
+from .commands import UniqueString, FunctionCall, PathString, DynamicCommand
 from .exceptions import CompilationError
-from . import tellraw, UniqueTag, Command, Comment, LiteralCommand
+from .paths import path_to_str
+from . import tellraw, UniqueTag, Command, Comment, LiteralCommand, Function, Class
+
+
+def call_function(function: "Function", *,
+                  arg: "Expression | None" = None,
+                  varargs: typing.Sequence["Expression"] = (),
+                  target: Variable | None = None) -> list[Command]:
+    out = [
+        Comment(f"calling function %s"
+                f"{' with STD_ARG' * bool(arg)}"
+                f"{f' with {len(varargs)} varargs' * bool(varargs)}",
+                PathString(function))
+    ]
+
+    if len(varargs) != len(function.args):
+        raise CompilationError(f"Function {path_to_str(function.path())} has {len(function.args)} varargs, but {len(varargs)} were given.")
+
+    for i, vararg in enumerate(varargs):
+        from .lib.std import STD_ARGSTACK, std_stack_push
+
+        out += call_function(std_stack_push(stack_nr=STD_ARGSTACK), arg=vararg)
+
+    if arg is not None:
+        from .lib.std import STD_ARG
+
+        out += [
+            *var_to_var(arg, STD_ARG)
+        ]
+
+    out += [
+        FunctionCall(function.entry_point)
+    ]
+
+    if target is not None:
+        from .lib.std import STD_RET
+        out += [
+            *var_to_var(STD_RET, target)
+        ]
+
+    return out
+
+
+def create_object(class_: Class, args: tuple[Expression], target: Variable | None = None) -> list[Command]:
+    from .lib import std
+
+    return [
+        *call_function(class_.get("__new__"), target=target),
+        # STD_RET is the obj_id
+        # STD_ARG is self argument
+        *call_function(class_.get("__init__"), arg=std.STD_RET, varargs=args),
+    ]
 
 
 def _print(*args: str | dict[str, str | bool] | Expression | tellraw.TextComponent | UniqueString,

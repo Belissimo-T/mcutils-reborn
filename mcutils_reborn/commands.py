@@ -108,6 +108,9 @@ class LiteralCommand(Command):
     def get_unique_strings(self) -> typing.Iterable[UniqueString]:
         return [arg for arg in self.args if isinstance(arg, UniqueString)]
 
+    def __repr__(self):
+        return f"L({self.literal!r})"
+
 
 class FunctionCall(Command):
     def __init__(self, function: Pathable):

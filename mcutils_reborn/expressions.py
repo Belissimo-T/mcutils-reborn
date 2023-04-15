@@ -111,7 +111,7 @@ class Expression(Generic):
     def to_tellraw(self,
                    curr_text_kwargs: dict[str, typing.Any],
                    resolve: typing.Callable[[UniqueString | str], str]
-                   ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
+                   ) -> tuple[list[str], list["tellraw.TextComponent"]]:
         raise NotImplementedError
 
     def __repr__(self):
@@ -159,6 +159,9 @@ class ScoreboardVar(Variable[WholeNumberType]):
                    ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.ScoreboardValue(resolve(self.player), resolve(self.objective), **curr_text_kwargs)]
 
+    def __eq__(self, other):
+        return self.player == other.player and self.objective == other.objective
+
     def __iter__(self):
         yield self.player
         yield self.objective
@@ -193,4 +196,5 @@ class NbtVar(Variable):
 
 
 from .commands import Command
-from . import tellraw
+from .conversion import var_to_var
+from . import tellraw, tools

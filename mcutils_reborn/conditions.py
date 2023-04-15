@@ -22,5 +22,5 @@ class ScoreCondition(Condition):
 
 
 class ScoreConditionMatches(Condition):
-    def __init__(self, expr1: ScoreboardVar, cmp: typing.Literal["matches"], value: str | UniqueString):
+    def __init__(self, expr1: ScoreboardVar, value: str | UniqueString):
         super().__init__("score", *expr1, "matches", value)

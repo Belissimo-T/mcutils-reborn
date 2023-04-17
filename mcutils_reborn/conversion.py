@@ -114,78 +114,87 @@ def nbt_to_nbt_execute_store(src: NbtVar[CompoundType | ListType | StringType | 
     )
 
 
-def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> list[Command]:
-    if isinstance(src, ScoreboardVar):
-        if isinstance(dst, ScoreboardVar):
-            assert scale == 1
-            return [score_to_score(src, dst)]
-
-        if isinstance(dst, NbtVar):
-            if not (dst.is_datatype(NumberType) or dst.is_datatype(AnyDataType)):
-                raise CompilationError(
-                    f"Cannot store ScoreboardVar of integer type in NbtVar of type {dst.dtype_name}.")
-
-            if not dst.is_datatype(ConcreteDataType):
-                raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
-
-            return [score_to_nbt(src, dst, scale)]
-
+def expr_to_score(src: Expression, dst: ScoreboardVar, scale: float = 1) -> list[Command]:
     if isinstance(src, ConstExpr):
         assert scale == 1
-        if isinstance(dst, ScoreboardVar):
-            if not src.is_datatype(WholeNumberType):
-                raise CompilationError(f"Only ConstExpr of WholeNumberType, not {src.dtype_name} can be stored in a "
-                                       f"ScoreboardVar.")
+        return [const_to_score(src, dst)]
 
-            return [const_to_score(src, dst)]
-
-        if isinstance(dst, NbtVar):
-            if not (dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype)):
-                raise CompilationError(f"Cannot store {src!r} in {dst!r}.")
-
-            return [const_to_nbt(src, dst)]
+    if isinstance(src, ScoreboardVar):
+        assert scale == 1
+        return [score_to_score(src, dst)]
 
     if isinstance(src, NbtVar):
-        if isinstance(dst, ScoreboardVar):
-            # no type guard needed, all types are valid
-            return [nbt_to_score(src, dst, scale)]
+        return [nbt_to_score(src, dst, scale)]
 
-        if isinstance(dst, NbtVar):
-            if src.is_datatype(AnyDataType) or dst.is_datatype(AnyDataType) or (None is not src.dtype == dst.dtype):
-                if src.is_datatype(AnyDataType) and not dst.is_datatype(AnyDataType):
-                    issue_warning(CompilationWarning(f"Assuming dtype of source {src!r} is the same as {dst!r}."))
+    raise NotImplementedError(f"Cannot store {src!r} in ScoreboardVar.")
 
-                assert scale == 1
-                return [nbt_to_same_nbt(src, dst)]
 
-            if src.is_datatype(NumberType) and dst.is_datatype(NumberType):
-                if not dst.is_datatype(ConcreteDataType):
-                    raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
+def nbt_to_nbt(src: NbtVar, dst: NbtVar, scale: float = 1) -> list[Command]:
+    # For any conversion from one data type to the same data type:
+    # if one of the data types is AnyDataType, we assume that the other one is the same
+    if (src.is_data_type(AnyDataType) or dst.is_data_type(AnyDataType)
+        # if the destination dtype is a supertype of the source dtype, we assume that they are the same, too
+        # For example int -> Number = int -> int
+        or dst.is_data_type(src.dtype_obj)
+    ):
+        # if both are AnyDataType, we assume that they are the same
+        if src.is_data_type(AnyDataType) and not dst.is_data_type(AnyDataType):
+            issue_warning(CompilationWarning(f"Assuming dtype of any-dtype source {src!r} is the same as any-dtype "
+                                             f"destination {dst!r}."))
 
-                if src.dtype is None and dst.dtype == "double":
-                    # TODO:
-                    #   it is possible to get the dtype of an nbt tag at runtime through
-                    #   put the tag in a list, then
-                    #   execute store success ... run data modify ... set value 1.0d
-                    #   this will fail if the tag is not a double
-                    issue_warning(CompilationWarning(
-                        f"Set from {src.dtype_name} NbtVar to double NbtVar: It is not possible to do type conversion "
-                        f"from an unknown dtype to a double without rounding to a float when using scoreboards as an "
-                        f"intermediate. That means a (potential) double will be rounded to a float. "
-                        f"In case you want to actually fetch a nbt double into another nbt double, add type "
-                        f"information to both NbtVars."
-                    ))
-                assert scale == 1
-                return [nbt_number_to_nbt_number(src, dst)]
+        if not dst.is_data_type(ConcreteDataType, AnyDataType):
+            issue_warning(CompilationWarning(f"Assuming dtype of destination {dst!r} with non-concrete dtype is the "
+                                             f"same as source {src!r}."))
 
-            if src.is_datatype((CompoundType, ListType, StringType)) and dst.is_datatype(NumberType):
-                if not dst.is_datatype(ConcreteDataType):
-                    raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
+        assert scale == 1
+        return [nbt_to_same_nbt(src, dst)]
 
-                return [nbt_to_nbt_execute_store(src, dst, scale)]
+    # anything else requires a conversion to a *known* data type
+    if not dst.is_data_type(ConcreteDataType):
+        raise CompilationError(f"Destination {dst!r} is not a concrete datatype.")
 
-            raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
+    # Number to Number:
+    if src.is_data_type(NumberType) and dst.is_data_type(NumberType):
+        # check for non-concrete dtype -> double conversion, because that is hard to do and not yet implemented
+        if dst.is_data_type(DoubleType) and not src.is_data_type(ConcreteDataType):
+            # TODO:
+            #   it is possible to get the dtype of an nbt tag at runtime through
+            #   put the tag in a list, then
+            #   execute store success ... run data modify ... set value 1.0d
+            #   this will fail if the tag is not a double
+            #   then, one can just do double->double
+            issue_warning(CompilationWarning(
+                f"Set from {src.dtype_name} NbtVar {src} to double NbtVar {dst}: It is not possible to do type "
+                f"conversion from an unknown dtype to a double without rounding to a float when using scoreboards as "
+                f"an intermediate. That means a (potential) double will be rounded to a float. "
+                f"In case you want to actually fetch a nbt double into another nbt double, add type "
+                f"information to both NbtVars."
+            ))
+        assert scale == 1
+        return [nbt_number_to_nbt_number(src, dst)]
 
+    # Counting items:
+    if src.is_data_type(CompoundType, ListType, StringType) and dst.is_data_type(NumberType):
+        return [nbt_to_nbt_execute_store(src, dst, scale)]
+
+    raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
+
+
+def expr_to_nbt(src: Expression, dst: NbtVar, scale: float = 1) -> list[Command]:
+    if isinstance(src, ConstExpr):
+        assert scale == 1
+        return [const_to_nbt(src, dst)]
+
+    if isinstance(src, ScoreboardVar):
+        return [score_to_nbt(src, dst, scale)]
+
+    if isinstance(src, NbtVar):
+        return nbt_to_nbt(src, dst, scale)
+
+    raise NotImplementedError(f"Cannot store {src!r} in NbtVar.")
+
+
+def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> list[Command]:
     if isinstance(src, DerivedVar):
         if isinstance(dst, (NbtVar, ScoreboardVar)):
             return [
@@ -197,6 +206,12 @@ def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> list[Command
             return [
                 *dst.from_primitive_var(src)
             ]
+
+    if isinstance(dst, ScoreboardVar):
+        return expr_to_score(src, dst, scale)
+
+    if isinstance(dst, NbtVar):
+        return expr_to_nbt(src, dst, scale)
 
     raise CompilationError(f"Cannot set {src!r} to {dst!r}.")
 
@@ -219,10 +234,10 @@ def add_const(src: Variable[NumberType], increment: ConstExpr[NumberType]) -> li
         return add_const_to_score(src, increment)
 
     if isinstance(src, NbtVar):
-        if not src.is_datatype((NumberType, AnyDataType)):
+        if not src.is_data_type(NumberType, DataType):
             raise CompilationError(f"Cannot add {increment!r} to non-NumberType {src!r}.")
 
-        if src.is_datatype(ConcreteDataType):
+        if src.is_data_type(ConcreteDataType):
             if src.dtype == "double":
                 temp_tag = UniqueTag("add_const_to_double_temp")
                 temp_sel = CompositeString("@e[tag=%s, limit=1]", temp_tag)
@@ -287,7 +302,7 @@ def add_in_place(src: Variable[NumberType], increment: Expression[NumberType]) -
             return score_score_op_in_place(src, "+=", increment)
 
         if isinstance(increment, NbtVar):
-            if not increment.is_datatype(WholeNumberType):
+            if not increment.is_data_type(WholeNumberType):
                 raise CompilationError(f"Cannot add {increment!r} to {src!r}. Increment must be a whole number.")
 
             from .lib.std import STD_TEMP_OBJECTIVE

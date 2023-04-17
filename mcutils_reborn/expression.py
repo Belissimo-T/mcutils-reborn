@@ -90,22 +90,16 @@ class Expression(Generic):
 
     @property
     def dtype(self) -> str | None:
-        try:
-            dtype_obj = self.dtype_obj
-
-            return getattr(dtype_obj, "dtype", None)
-        except CompilationError:
-            # no dtype set
-            pass
+        dtype_obj = self.dtype_obj
+        return getattr(dtype_obj, "dtype", None)
 
     @property
     def dtype_name(self) -> str:
         return self.dtype_obj.__name__
 
-    def is_datatype(self,
-                    type_: typing.Type[DataType] | typing.Type[ConcreteDataType] |
-                           tuple[typing.Type[DataType] | typing.Type[ConcreteDataType], ...]
-                    ) -> bool:
+    def is_data_type(self,
+                     *type_: typing.Type[DataType] | typing.Type[ConcreteDataType]
+                     ) -> bool:
         return issubclass(self.dtype_obj, type_)
 
     def to_tellraw(self,

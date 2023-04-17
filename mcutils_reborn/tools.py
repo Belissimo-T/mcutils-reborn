@@ -1,11 +1,13 @@
 import typing
 
-from .expressions import Expression, Variable
-from .conversion import var_to_var
-from .commands import UniqueString, FunctionCall, PathString, DynamicCommand
-from .exceptions import CompilationError
+from .expression import Expression, Variable
+from . import conversion as conv
+from .command import UniqueString, FunctionCall, PathString, DynamicCommand, UniqueTag, Command, Comment, \
+    LiteralCommand, Function
+from .exception import CompilationError
 from .paths import path_to_str
-from . import tellraw, UniqueTag, Command, Comment, LiteralCommand, Function, Class
+from . import tellraw
+from .namespace import Class
 
 
 def call_function(function: "Function", *,
@@ -20,7 +22,8 @@ def call_function(function: "Function", *,
     ]
 
     if len(varargs) != len(function.args):
-        raise CompilationError(f"Function {path_to_str(function.path())} has {len(function.args)} varargs, but {len(varargs)} were given.")
+        raise CompilationError(
+            f"Function {path_to_str(function.path())} has {len(function.args)} varargs, but {len(varargs)} were given.")
 
     for i, vararg in enumerate(varargs):
         from .lib.std import STD_ARGSTACK, std_stack_push
@@ -31,7 +34,7 @@ def call_function(function: "Function", *,
         from .lib.std import STD_ARG
 
         out += [
-            *var_to_var(arg, STD_ARG)
+            *conv.var_to_var(arg, STD_ARG)
         ]
 
     out += [
@@ -41,7 +44,7 @@ def call_function(function: "Function", *,
     if target is not None:
         from .lib.std import STD_RET
         out += [
-            *var_to_var(STD_RET, target)
+            *conv.var_to_var(STD_RET, target)
         ]
 
     return out

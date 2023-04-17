@@ -1,7 +1,7 @@
 import json
 from typing import Literal
 
-from .exceptions import issue_warning, CompilationWarning
+from .exception import issue_warning, CompilationWarning
 
 UNSET = type("Unset", (), {})
 
@@ -270,5 +270,3 @@ def main():
 
 if __name__ == '__main__':
     print(main())
-
-from .expressions import ScoreboardVar

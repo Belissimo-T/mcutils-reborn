@@ -2,9 +2,8 @@ import abc
 import re
 import typing
 
-from . import Function, Pathable
+from .exception import CompilationError
 from . import paths
-from .exceptions import CompilationError
 
 _UNIQUE_STRING_ID = 0
 
@@ -12,7 +11,7 @@ _UNIQUE_STRING_ID = 0
 class UniqueString:
     path_func = staticmethod(paths.path_to_str)
 
-    def __init__(self, value: str, namespace: Pathable | None = None):
+    def __init__(self, value: str, namespace: "Pathable | None" = None):
         self.value = value
         self.namespace = namespace
 
@@ -23,6 +22,9 @@ class UniqueString:
         return hash((self.id, self.__class__.__name__, self.value))
 
     def __eq__(self, other: "UniqueString"):
+        if not isinstance(other, UniqueString):
+            return False
+
         return self.id == other.id
 
     def __repr__(self):
@@ -58,7 +60,7 @@ class CompositeString(NonUniqueString):
 
 
 class PathString(NonUniqueString):
-    def __init__(self, namespace: Pathable | None = None):
+    def __init__(self, namespace: "Pathable | None" = None):
         super().__init__("", namespace)
 
     def get(self, existing_strings: set[str], resolve: "resolve_callable",
@@ -113,7 +115,7 @@ class LiteralCommand(Command):
 
 
 class FunctionCall(Command):
-    def __init__(self, function: Pathable):
+    def __init__(self, function: "Pathable"):
         assert not isinstance(function, Function), \
             "Argument to FunctionCall must not be a Function object. Use MCFunction or FunctionTag instead."
 
@@ -158,4 +160,6 @@ class ComposedCommand(Command):
         )
 
 
+from .namespace import Pathable
 from .export import path_of_func_callable, resolve_callable
+from .function import Function

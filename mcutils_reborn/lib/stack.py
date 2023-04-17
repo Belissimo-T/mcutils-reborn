@@ -1,5 +1,8 @@
 from .std import *
-from .. import *
+from .. import tools
+from .. import conversion as conv
+from ..expression import *
+from ..command import *
 
 with std_namespace.create_namespace("stack") as std_stack_namespace:
     STD_STACK_INDEX_OBJECTIVE = UniqueScoreboardObjective("index", std_stack_namespace)
@@ -53,7 +56,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_TAG),
 
             Comment("return value"),
-            *var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
+            *conv.var_to_var(ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE), STD_RET),
         )
 
         return out
@@ -80,7 +83,7 @@ with std_namespace.create_namespace("stack") as std_stack_namespace:
                            _STD_STACK_TEMP_SEL, STD_STACK_INDEX_OBJECTIVE, *stack_len_of_stacknr(stack_nr)),
 
             Comment("set value"),
-            *var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
+            *conv.var_to_var(STD_ARG, ScoreboardVar(_STD_STACK_TEMP_SEL, STD_STACK_VALUE_OBJECTIVE)),
         )
 
         return out

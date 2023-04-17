@@ -1,7 +1,7 @@
 import typing
 
-from .commands import UniqueString
-from .expressions import ScoreboardVar
+from .command import UniqueString
+from .expression import ScoreboardVar
 
 
 class Condition:

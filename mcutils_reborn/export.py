@@ -1,10 +1,11 @@
 import os
 import beet
 
-from . import Namespace, FunctionTag, Pathable
+from .namespace import Pathable
+from .function import Namespace, FunctionTag
 from .paths import *
-from .commands import LiteralCommand, UniqueString, Command, NonUniqueString, FunctionCall, Comment
-from .exceptions import CompilationError
+from .command import LiteralCommand, UniqueString, Command, NonUniqueString, FunctionCall, Comment
+from .exception import CompilationError
 
 
 class Datapack(Namespace):

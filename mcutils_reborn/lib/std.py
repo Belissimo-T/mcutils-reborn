@@ -1,5 +1,5 @@
-from .. import Namespace
-from ..commands import UniqueScoreboardObjective, Comment, FunctionCall, LiteralCommand, UniqueTag
+from ..namespace import Namespace
+from ..command import *
 from .. import tools
 
 std_namespace = Namespace("mcutils_reborn_std")
@@ -36,3 +36,4 @@ with std_namespace.create_function("load", tags={"minecraft:load"}) as load:
 
 from .object import *
 from .stack import *
+from .debug import *

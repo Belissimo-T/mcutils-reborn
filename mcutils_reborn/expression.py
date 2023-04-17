@@ -1,9 +1,9 @@
 import abc
 import typing
 
-from .exceptions import CompilationError
+from .exception import CompilationError
 from .generics import Generic
-from .commands import UniqueString
+from . import tellraw
 
 
 class DataType:
@@ -110,7 +110,7 @@ class Expression(Generic):
 
     def to_tellraw(self,
                    curr_text_kwargs: dict[str, typing.Any],
-                   resolve: typing.Callable[[UniqueString | str], str]
+                   resolve: typing.Callable[["UniqueString | str"], str]
                    ) -> tuple[list[str], list["tellraw.TextComponent"]]:
         raise NotImplementedError
 
@@ -131,7 +131,7 @@ class ConstExpr(Expression):
 
     def to_tellraw(self,
                    curr_text_kwargs: dict[str, typing.Any],
-                   unique_strings: dict[UniqueString, str]
+                   unique_strings: dict["UniqueString", str]
                    ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.PlainText(self.value, **curr_text_kwargs)]
 
@@ -139,14 +139,13 @@ class ConstExpr(Expression):
         return f"{self.__class__.__name__}[{self.dtype_name}]({self.value!r})"
 
 
-# this is temporary
 class ConstInt(ConstExpr[WholeNumberType]):
     def __init__(self, value: int):
         super().__init__(str(value))
 
 
 class ScoreboardVar(Variable[WholeNumberType]):
-    def __init__(self, player: str | UniqueString, objective: str | UniqueString):
+    def __init__(self, player: "str | UniqueString", objective: "str | UniqueString"):
         self.player = player
         self.objective = objective
 
@@ -155,7 +154,7 @@ class ScoreboardVar(Variable[WholeNumberType]):
 
     def to_tellraw(self,
                    curr_text_kwargs: dict[str, typing.Any],
-                   resolve: typing.Callable[[UniqueString | str], str]
+                   resolve: typing.Callable[["UniqueString | str"], str]
                    ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.ScoreboardValue(resolve(self.player), resolve(self.objective), **curr_text_kwargs)]
 
@@ -172,7 +171,7 @@ class NbtVar(Variable):
 
     def __init__(self,
                  nbt_container_type: _nbt_container_type_literal,
-                 nbt_container_argument: str | UniqueString,
+                 nbt_container_argument: "str | UniqueString",
                  path: str = ""):
         self.nbt_container_type = nbt_container_type
         self.nbt_container_argument = nbt_container_argument
@@ -180,7 +179,7 @@ class NbtVar(Variable):
 
     def to_tellraw(self,
                    curr_text_kwargs: dict[str, typing.Any],
-                   resolve: typing.Callable[[UniqueString | str], str]
+                   resolve: typing.Callable[["UniqueString | str"], str]
                    ) -> tuple[list["str"], list["tellraw.TextComponent"]]:
         return [], [tellraw.NBT(self.path, **{self.nbt_container_type: resolve(self.nbt_container_argument)},
                                 **curr_text_kwargs)]
@@ -195,50 +194,4 @@ class NbtVar(Variable):
                f"{self.nbt_container_argument!r}, {self.path!r})"
 
 
-# noinspection PyAbstractClass
-class ComplexVar(Variable):
-    def to_primitive_var(self, dst: NbtVar | ScoreboardVar) -> list["Command"]:
-        raise NotImplementedError
-
-    def from_primitive_var(self, src: NbtVar | ScoreboardVar) -> list["Command"]:
-        raise NotImplementedError
-
-
-class ObjectAttributeVar(ComplexVar):
-    def __init__(self, obj: Expression[WholeNumberType], attribute: str | UniqueString):
-        self.obj = obj
-        self.attribute = attribute
-
-    def to_tellraw(self,
-                   curr_text_kwargs: dict[str, typing.Any],
-                   resolve: typing.Callable[[UniqueString | str], str]
-                   ) -> tuple[list[str], list["tellraw.TextComponent"]]:
-        return [], [tellraw.PlainText(f"ObjAttr[UNIMPLEMENTED]", **curr_text_kwargs)]
-
-    def to_primitive_var(self, dst: NbtVar | ScoreboardVar) -> list["Command"]:
-        from .lib import std
-
-        return [
-            *tools.call_function(std.std_object_fetch_object, arg=self.obj),
-            *var_to_var(NbtVar[self.dtype_obj]("entity", std.STD_OBJ_RET_SEL, path=f"data.{self.attribute}"), dst)
-        ]
-
-    def from_primitive_var(self, src: NbtVar | ScoreboardVar) -> list["Command"]:
-        from .lib import std
-
-        return [
-            *tools.call_function(std.std_object_fetch_object, arg=self.obj),
-            *var_to_var(src, NbtVar[self.dtype_obj]("entity", std.STD_OBJ_RET_SEL, path=f"data.{self.attribute}"))
-        ]
-
-    def __iter__(self):
-        yield self.obj
-        yield self.attribute
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}[{self.dtype_name}]({self.obj!r}, {self.attribute!r})"
-
-
-from .commands import Command
-from .conversion import var_to_var
-from . import tellraw, tools
+from .command import UniqueString

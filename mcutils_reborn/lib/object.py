@@ -1,7 +1,7 @@
 from .std import *
-from ..commands import *
-from ..expressions import ConstInt
-from ..conversion import var_to_var
+from ..command import *
+from ..expression import ConstInt
+from .. import conversion as conv
 
 
 with std_namespace.create_namespace("object") as std_object:
@@ -16,7 +16,7 @@ with std_namespace.create_namespace("object") as std_object:
             LiteralCommand("scoreboard objectives add %s dummy", STD_OBJ_ID_OBJECTIVE),
 
             Comment("initialize the object id counter"),
-            *var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
+            *conv.var_to_var(ConstInt(0), STD_OBJ_ID_COUNTER),
 
             *tools.log("mcutils_reborn", " * Loaded object library!"),
         )

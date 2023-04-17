@@ -1,6 +1,6 @@
-from .exceptions import issue_warning, CompilationWarning
-from .expressions import *
-from .commands import *
+from .exception import issue_warning, CompilationWarning
+from .expression import *
+from .command import *
 
 """
 # Conversions:
@@ -186,13 +186,13 @@ def var_to_var(src: Expression, dst: Variable, scale: float = 1) -> list[Command
 
             raise CompilationError(f"Cannot set {src.dtype_name} NbtVar to {dst.dtype_name} NbtVar.")
 
-    if isinstance(src, ComplexVar):
+    if isinstance(src, DerivedVar):
         if isinstance(dst, (NbtVar, ScoreboardVar)):
             return [
                 *src.to_primitive_var(dst)
             ]
 
-    if isinstance(dst, ComplexVar):
+    if isinstance(dst, DerivedVar):
         if isinstance(src, (NbtVar, ScoreboardVar)):
             return [
                 *dst.from_primitive_var(src)
@@ -306,3 +306,6 @@ def add_in_place(src: Variable[NumberType], increment: Expression[NumberType]) -
             raise CompilationError(f"Cannot add {increment!r} to {src!r} yet.")
 
     raise CompilationError(f"Cannot add {increment!r} to {src!r}.")
+
+
+from .derived_var import DerivedVar
